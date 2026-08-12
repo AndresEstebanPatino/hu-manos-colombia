@@ -2,4 +2,5 @@
 export * from "./types";
 export * from "./contracts";
 export * from "./state-machines";
+export * from "./validation";
 export * from "./mocks";

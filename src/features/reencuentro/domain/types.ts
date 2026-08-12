@@ -124,3 +124,20 @@ export interface Coincidencia {
   creadoEn: string; // ISO 8601
   actualizadoEn: string; // ISO 8601
 }
+
+/** Input para capturar un reporte (los campos ausentes generan advertencias, no bloqueos). */
+export interface CrearReporteInput {
+  tipo: TipoReporte;
+  creadoPorRol: RolUsuario;
+  creadoPorId: string;
+  nombre?: string;
+  edadAprox?: number;
+  sexo?: Sexo;
+  descripcionFisica?: string;
+  ropa?: string;
+  senasParticulares?: string;
+  ultimaUbicacion?: Ubicacion;
+  foto?: FotoReporte;
+  estadoVital?: EstadoVital;
+  reportante?: DatosReportante;
+}
