@@ -50,6 +50,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
 
+    // Agregar también al feed local para que el modal refleje la actividad inmediatamente
+    setActivityLog((prev) => [newActivity, ...prev.filter((a) => a.id !== newActivity.id)]);
     setCurrentToast(newActivity);
 
     // Animación de entrada
@@ -85,39 +87,67 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }, 4500);
   };
 
-  // Cargar notificaciones globales de la tabla `notificaciones` en Supabase
+  // Cargar notificaciones globales de la tabla `notificaciones` o de `necesidades` si la tabla está vacía
   const fetchNotifications = useCallback(async () => {
-    if (!isSupabaseConfigured()) return;
+    if (!isSupabaseConfigured()) {
+      return;
+    }
+
     try {
+      // 1. Intentar consultar la tabla `notificaciones`
       const { data, error } = await supabase
         .from("notificaciones")
         .select("*")
         .order("creado_en", { ascending: false })
         .limit(25);
 
-      if (!error && data) {
+      if (!error && data && data.length > 0) {
         const mapped: CommunityActivity[] = data.map((item: any) => ({
-          id: item.id,
-          title: item.titulo,
-          message: item.mensaje,
+          id: item.id || `notif-${Math.random()}`,
+          title: item.titulo || "🚨 Nueva solicitud",
+          message: item.mensaje || "Publicada en Colombia",
           type: item.tipo === "NUEVO_EVENTO" ? "alert" : "info",
-          timestamp: new Date(item.creado_en).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          timestamp: item.creado_en
+            ? new Date(item.creado_en).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            : "Reciente",
           creado_por: item.creado_por,
         }));
         setActivityLog(mapped);
+        return;
+      }
+
+      // 2. Si `notificaciones` está vacía aún o es nueva, autogenerar el Feed desde `necesidades`
+      const { data: needsData } = await supabase
+        .from("necesidades")
+        .select("id, titulo, ubicacion, creado_en, creador_id")
+        .order("creado_en", { ascending: false })
+        .limit(15);
+
+      if (needsData && needsData.length > 0) {
+        const mappedFromNeeds: CommunityActivity[] = needsData.map((item: any) => ({
+          id: `need-notif-${item.id}`,
+          title: "🚨 Solicitud activa en la comunidad",
+          message: `${item.titulo} en ${item.ubicacion}`,
+          type: "alert",
+          timestamp: item.creado_en
+            ? new Date(item.creado_en).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            : "Reciente",
+          creado_por: item.creador_id,
+        }));
+        setActivityLog(mappedFromNeeds);
       }
     } catch (err) {
       console.log("Consulta de notificaciones globales en espera.");
     }
   }, []);
 
-  // Supabase Realtime para la tabla `notificaciones` y Presencia de usuarios en línea
+  // Supabase Realtime para las tablas `notificaciones` y `necesidades` + Presencia
   useEffect(() => {
     fetchNotifications();
 
     if (isSupabaseConfigured()) {
       try {
-        // 1. Presencia de Usuarios en Línea
+        // Presencia de Usuarios en Línea
         const presenceChannel = supabase.channel("online-users", {
           config: {
             presence: {
@@ -138,29 +168,48 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             }
           });
 
-        // 2. Escuchador de Supabase Realtime a la tabla `notificaciones`
+        // Suscripción Realtime a la tabla `notificaciones`
         const notifChannel = supabase
-          .channel("notificaciones-realtime")
+          .channel("notificaciones-realtime-channel")
           .on(
             "postgres_changes",
             { event: "INSERT", schema: "public", table: "notificaciones" },
             (payload) => {
               const newNotif = payload.new as any;
               const newActivity: CommunityActivity = {
-                id: newNotif.id,
-                title: newNotif.titulo,
-                message: newNotif.mensaje,
+                id: newNotif.id || `notif-${Date.now()}`,
+                title: newNotif.titulo || "🚨 Nueva solicitud",
+                message: newNotif.mensaje || "Publicada en la comunidad",
                 type: newNotif.tipo === "NUEVO_EVENTO" ? "alert" : "info",
                 timestamp: new Date(newNotif.creado_en || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
                 creado_por: newNotif.creado_por,
               };
 
-              // Actualizar el estado global de la campana 🔔 para TODOS los usuarios
-              setActivityLog((prev) => [newActivity, ...prev.filter((item) => item.id !== newNotif.id)]);
+              setActivityLog((prev) => [newActivity, ...prev.filter((item) => item.id !== newActivity.id)]);
 
-              // Mostrar el banner flotante a los DEMÁS usuarios
               if (!user?.id || newNotif.creado_por !== user.id) {
-                showToast(newNotif.titulo, newNotif.mensaje, "alert");
+                showToast(newActivity.title, newActivity.message, "alert");
+              }
+            }
+          )
+          .on(
+            "postgres_changes",
+            { event: "INSERT", schema: "public", table: "necesidades" },
+            (payload) => {
+              const newNeed = payload.new as any;
+              const newActivity: CommunityActivity = {
+                id: `need-notif-${newNeed.id}`,
+                title: "🚨 Nueva solicitud creada",
+                message: `${newNeed.titulo} en ${newNeed.ubicacion}`,
+                type: "alert",
+                timestamp: new Date(newNeed.creado_en || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                creado_por: newNeed.creador_id,
+              };
+
+              setActivityLog((prev) => [newActivity, ...prev.filter((item) => item.id !== newActivity.id)]);
+
+              if (!user?.id || newNeed.creador_id !== user.id) {
+                showToast(newActivity.title, newActivity.message, "alert");
               }
             }
           )
