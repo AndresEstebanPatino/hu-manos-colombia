@@ -1,8 +1,11 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || "https://xrxuzvvvorxukyoeqibg.supabase.co";
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "sb_publishable_5PQ8ugmExZQulip3fmD3eA_hRMLoNqH";
+// Credenciales SOLO desde variables de entorno (EXPO_PUBLIC_*).
+// Sin ellas -> placeholders -> isSupabaseConfigured() = false -> la app opera en modo local (offline).
+// No hardcodear credenciales reales aquí. Ver docs/seguridad/revision-rls-y-secretos.md
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || "https://placeholder-supabase-url.supabase.co";
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "placeholder-anon-key";
 
 export const isSupabaseConfigured = (): boolean => {
   return (
