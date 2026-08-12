@@ -38,6 +38,19 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="reencuentro"
+        options={{
+          title: "Reencuentro",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "people" : "people-outline"}
+              size={24}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="create"
         options={{
           title: "+ Crear",

@@ -10,7 +10,7 @@ import { COLORS } from "../../src/constants/theme";
 const service = crearCaptureService();
 const connectivity = new NetInfoConnectivityMonitor();
 
-export default function ReportarPersonaRoute() {
+export default function ReencuentroTab() {
   const { user } = useAuth();
 
   // Al recuperar señal, sincroniza la cola local en segundo plano.
