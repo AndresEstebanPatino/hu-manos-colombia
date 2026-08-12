@@ -42,3 +42,9 @@ export interface SyncEngine {
   /** Sincroniza la cola local hacia el servidor (idempotente por id de cliente). */
   sync(): Promise<SyncResult>;
 }
+
+/** Puerta hacia el servidor (Supabase). La implementación real vive en el backend. */
+export interface RemoteReportGateway {
+  /** Upsert idempotente de un reporte en el servidor. Puede rechazar (error de red). */
+  upsert(reporte: ReportePersona): Promise<void>;
+}

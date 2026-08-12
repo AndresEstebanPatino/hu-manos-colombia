@@ -6,6 +6,7 @@ import {
   ConnectivityMonitor,
   PhotoCompressor,
   CompressedPhoto,
+  RemoteReportGateway,
 } from "./contracts";
 
 /** Repositorio en memoria: idempotente por id de cliente. */
@@ -80,5 +81,40 @@ export class FakeConnectivityMonitor implements ConnectivityMonitor {
 export class NoopPhotoCompressor implements PhotoCompressor {
   async compress(uri: string): Promise<CompressedPhoto> {
     return { uri, width: 1280, height: 960, bytes: 190_000 };
+  }
+}
+
+/**
+ * Gateway remoto falso para tests: permite simular fallos de red transitorios
+ * o permanentes por id, y registra cuántos intentos de upsert recibió cada id.
+ */
+export class FakeRemoteGateway implements RemoteReportGateway {
+  private fallasRestantes = new Map<string, number>();
+  private siempreFalla = new Set<string>();
+  readonly upsertCount = new Map<string, number>();
+
+  /** El id fallará `veces` veces y luego tendrá éxito. */
+  fallarVeces(id: string, veces: number): void {
+    this.fallasRestantes.set(id, veces);
+  }
+
+  /** El id fallará siempre. */
+  fallarSiempre(id: string): void {
+    this.siempreFalla.add(id);
+  }
+
+  async upsert(reporte: ReportePersona): Promise<void> {
+    this.upsertCount.set(reporte.id, (this.upsertCount.get(reporte.id) ?? 0) + 1);
+
+    if (this.siempreFalla.has(reporte.id)) {
+      throw new Error(`remote fail permanente: ${reporte.id}`);
+    }
+
+    const restantes = this.fallasRestantes.get(reporte.id) ?? 0;
+    if (restantes > 0) {
+      this.fallasRestantes.set(reporte.id, restantes - 1);
+      throw new Error(`remote fail transitorio: ${reporte.id}`);
+    }
+    // éxito (idempotente: el servidor real hace upsert por id de cliente)
   }
 }
