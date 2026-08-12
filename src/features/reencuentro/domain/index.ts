@@ -1,0 +1,5 @@
+// Punto único de importación de la capa de dominio del módulo Reencuentro.
+export * from "./types";
+export * from "./contracts";
+export * from "./state-machines";
+export * from "./mocks";
