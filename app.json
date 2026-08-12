@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "Hu-Manos Colombia",
+    "slug": "hu-mano-colombia",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "hu-mano-colombia",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "co.humano.colombia"
+    },
+    "android": {
+      "package": "co.humano.colombia"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
