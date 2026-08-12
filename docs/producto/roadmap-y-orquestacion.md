@@ -230,6 +230,16 @@ Cada agente: **una partición, una rama, worktree propio, TDD**. Consulta el ín
 
 ## 11. Estado actual y siguiente paso
 
-**Hecho:** entorno instalado (`npm install` ✓, Android), repo indexado, rama `feat/reencuentro-planning`, plan de producto + PRD captura/sync + este roadmap.
+### Decisiones resueltas (2026-08-12)
+- **Modelo de auth (RBAC):** captura pública anónima/invitado para **familiar** y **socorrista** (cero fricción en emergencia); **auth verificada obligatoria** para roles privilegiados (**coordinador, hospital, albergue**). El RLS del backend se diseña sobre esta base.
+- **Protocolo de fallecidos:** **stub documentado** — la app bloquea la notificación automática y enruta a "protocolo oficial"; se cablea el lineamiento real de UNGRD / Cruz Roja / Medicina Legal cuando esté disponible.
 
-**Siguiente (requiere tu OK para lanzar agentes):** **Ola 0 (Fundación)** — es barrera y desbloquea todo. Propuesta: lanzarla como batch controlado (1–3 agentes) con worktrees, entregando tipos de dominio + esquema Supabase con RBAC + harness de test + contratos/mocks. Al cerrar en verde, reindexo y abrimos Ola 1 en paralelo (Backend + Frontend + DevOps + QA).
+### Progreso (Ola 0 — parcial, en `feat/reencuentro-foundation`)
+- ✅ Capa de dominio: tipos, contratos, mocks, máquinas de estado (con reglas duras de fallecidos).
+- ✅ Harness de test (jest-expo) + scripts `test` / `typecheck`.
+- ✅ Motor de sync idempotente (aislamiento de fallos + backoff). **19 tests verdes**, typecheck limpio.
+- ⏳ Pendiente de Ola 0: esquema Supabase + RLS/RBAC (backend) — arranca con el modelo de auth ya decidido.
+
+### Siguiente
+- **Backend Ola 0:** `personas_reportes` + `coincidencias` + `roles_usuario` con **RLS RBAC real** (anónimo solo captura; roles privilegiados con auth verificada).
+- **Luego Ola 1:** persistencia real (AsyncStorage/SQLite) + NetInfo + compresión de foto + UI de captura, todo con TDD contra los contratos ya definidos.
