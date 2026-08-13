@@ -25,8 +25,14 @@ as $$
 declare
   v_afectadas integer;
 begin
-  -- Solo un COORDINADOR (o un proceso con service_role) puede dispararlo.
-  if not (public.reencuentro_tiene_rol(array['COORDINADOR']) or auth.role() = 'service_role') then
+  -- Permitido: COORDINADOR, service_role, o acceso directo a la BD (SQL Editor / cron).
+  -- auth.role() es null cuando no hay request JWT (acceso administrativo directo, ya confiable).
+  -- Bloquea anon y usuarios autenticados sin rol.
+  if not (
+    auth.role() is null
+    or auth.role() = 'service_role'
+    or public.reencuentro_tiene_rol(array['COORDINADOR'])
+  ) then
     raise exception 'Solo un COORDINADOR (o service_role) puede generar coincidencias.';
   end if;
 
