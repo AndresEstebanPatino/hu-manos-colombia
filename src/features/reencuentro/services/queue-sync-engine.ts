@@ -1,6 +1,7 @@
 import {
   ReportRepository,
   RemoteReportGateway,
+  ReportePersona,
   SyncEngine,
   SyncResult,
   SyncState,
@@ -30,8 +31,15 @@ export class QueueSyncEngine implements SyncEngine {
     for (const reporte of pendientes) {
       try {
         await this.repo.setSyncState(reporte.id, "SINCRONIZANDO");
-        await this.gateway.upsert(reporte);
-        await this.repo.setSyncState(reporte.id, "SINCRONIZADO");
+        // Al llegar al servidor, un reporte recién capturado pasa a ACTIVO
+        // (queda disponible para el cruce y la lista). Otros estados se conservan.
+        const estadoServidor: ReportePersona["estado"] =
+          reporte.estado === "CAPTURADO" || reporte.estado === "PENDIENTE_SYNC"
+            ? "ACTIVO"
+            : reporte.estado;
+        const paraSubir: ReportePersona = { ...reporte, estado: estadoServidor };
+        await this.gateway.upsert(paraSubir);
+        await this.repo.upsert({ ...paraSubir, syncState: "SINCRONIZADO" });
         sincronizados.push(reporte.id);
       } catch {
         const intentos = reporte.intentosSync + 1;
