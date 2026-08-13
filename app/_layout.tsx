@@ -47,6 +47,8 @@ export default function RootLayout() {
                   headerTintColor: COLORS.primary,
                 }}
               />
+              <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
+              <Stack.Screen name="login" options={{ headerShown: false }} />
             </Stack>
           </NotificationProvider>
         </AuthProvider>

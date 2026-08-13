@@ -107,16 +107,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const sbUser = data.session.user;
             const profile: UserProfile = {
               id: sbUser.id,
-              nombre: sbUser.user_metadata?.full_name || sbUser.email?.split("@")[0] || "Usuario Google",
+              nombre: sbUser.user_metadata?.full_name || sbUser.email?.split("@")[0] || (sbUser.is_anonymous ? "Invitado Voluntario" : "Usuario Verificado"),
               email: sbUser.email,
               avatar_url: sbUser.user_metadata?.avatar_url,
-              metodo_auth: "GOOGLE",
+              metodo_auth: sbUser.is_anonymous ? "RAPIDO" : "GOOGLE",
               creado_en: sbUser.created_at || new Date().toISOString(),
             };
             setUser(profile);
             await AsyncStorage.setItem(USER_SESSION_KEY, JSON.stringify(profile));
             setIsLoading(false);
             return;
+          }
+
+          // Si NO hay sesión activa en Supabase Auth, iniciar sesión anónima inmediatamente al arranque
+          try {
+            const { data: anonData, error: anonErr } = await supabase.auth.signInAnonymously();
+            if (!anonErr && anonData?.user) {
+              const sbUser = anonData.user;
+              const anonProfile: UserProfile = {
+                id: sbUser.id,
+                nombre: "Invitado Voluntario",
+                metodo_auth: "RAPIDO",
+                creado_en: sbUser.created_at || new Date().toISOString(),
+              };
+              setUser(anonProfile);
+              await AsyncStorage.setItem(USER_SESSION_KEY, JSON.stringify(anonProfile));
+              setIsLoading(false);
+              return;
+            }
+          } catch (e) {
+            console.log("Inicio de sesión anónimo al arranque:", e);
           }
         }
 
@@ -214,31 +234,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
 
-      if (result.type !== "success" || !result.url) {
-        // El usuario canceló el flujo o algo impidió completarlo
+      if (result.type === "success" && result.url) {
+        await handleAuthRedirectUrl(result.url);
+      }
+
+      // Verificar que la sesión se haya establecido correctamente (vía result.url o deep link)
+      const updatedSession = await supabase.auth.getSession();
+      if (updatedSession.data?.session?.user) {
+        const sbUser = updatedSession.data.session.user;
+        const googleProfile: UserProfile = {
+          id: sbUser.id,
+          nombre: sbUser.user_metadata?.full_name || sbUser.email?.split("@")[0] || "Usuario Google",
+          email: sbUser.email,
+          avatar_url: sbUser.user_metadata?.avatar_url,
+          metodo_auth: "GOOGLE",
+          creado_en: sbUser.created_at || new Date().toISOString(),
+        };
+        await saveUserSession(googleProfile);
+        return googleProfile;
+      }
+
+      if (result.type === "cancel") {
         throw new Error("El inicio de sesión con Google fue cancelado.");
       }
 
-      // Procesar la URL de retorno con los tokens de OAuth
-      await handleAuthRedirectUrl(result.url);
-
-      // Verificar que la sesión se estableció correctamente en Supabase
-      const updatedSession = await supabase.auth.getSession();
-      if (!updatedSession.data?.session?.user) {
-        throw new Error("No se pudo establecer la sesión con Google. Intenta de nuevo.");
-      }
-
-      const sbUser = updatedSession.data.session.user;
-      const googleProfile: UserProfile = {
-        id: sbUser.id,
-        nombre: sbUser.user_metadata?.full_name || sbUser.email?.split("@")[0] || "Usuario Google",
-        email: sbUser.email,
-        avatar_url: sbUser.user_metadata?.avatar_url,
-        metodo_auth: "GOOGLE",
-        creado_en: sbUser.created_at || new Date().toISOString(),
-      };
-      await saveUserSession(googleProfile);
-      return googleProfile;
+      throw new Error("No se pudo establecer la sesión con Google. Intenta de nuevo.");
     } catch (err) {
       console.error("Error en signInWithGoogle:", err);
       // Propagar el error para que AuthModal pueda mostrarlo al usuario

@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Necesidad } from "../types/need";
-import { CategoryBadge, TypeBadge } from "./StatusBadge";
+import { CategoryBadge, TypeBadge, ModoBadge } from "./StatusBadge";
 import { ProgressBar } from "./ProgressBar";
 import { getTimeAgo, voteTrustNeed } from "../services/storage";
 import { COLORS } from "../constants/theme";
@@ -139,11 +139,11 @@ export const NeedCard: React.FC<NeedCardProps> = ({
 
   // Apertura del flujo formal de reporte
   const handleReportScam = () => {
-    // Validar requerimiento obligatorio de usuario autenticado
-    if (!user?.id || user.id.startsWith("guest-") || user.id === "anonimo") {
+    // Validar requerimiento obligatorio de usuario autenticado o anónimo con ID de Auth
+    if (!user?.id) {
       Alert.alert(
         "Inicio de Sesión Requerido",
-        "Debes iniciar sesión con tu cuenta para poder reportar una solicitud por posible estafa o información falsa.",
+        "Debes tener una sesión activa para poder reportar una solicitud por posible estafa o información falsa.",
         [{ text: "Entendido", style: "default" }]
       );
       return;
@@ -189,11 +189,12 @@ export const NeedCard: React.FC<NeedCardProps> = ({
   };
 
   return (
-    <View style={[styles.card, isClosedManually && styles.completedCard]}>
+    <View style={[styles.card, need.modo === "OFERTA" && styles.ofertaCard, isClosedManually && styles.completedCard]}>
       <View style={styles.cardContent}>
-        {/* Header Row: Category Badge + Type Badge + Time Ago */}
+        {/* Header Row: Modo Badge + Category Badge + Type Badge + Time Ago */}
         <View style={styles.topMetaRow}>
           <View style={styles.badgeGroup}>
+            <ModoBadge modo={need.modo} />
             <CategoryBadge category={need.categoria} />
             <TypeBadge type={need.tipo} />
           </View>
@@ -411,6 +412,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8FAFC",
     borderColor: "#E2E8F0",
     opacity: 0.92,
+  },
+  ofertaCard: {
+    borderLeftWidth: 5,
+    borderLeftColor: "#059669",
+    borderColor: "#A7F3D0",
   },
   accentBar: {
     height: 4,

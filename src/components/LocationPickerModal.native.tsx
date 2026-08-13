@@ -16,6 +16,7 @@ import {
   reverseGeocodeCoordinates,
   getCurrentGPSCoordinates,
 } from "../services/locationService";
+import { obtenerDireccionDesdeCoordenadas } from "../services/nominatimGeocoding";
 
 interface LocationPickerModalProps {
   visible: boolean;
@@ -185,11 +186,18 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
   }, [visible, initialCoords]);
 
   const updateAddress = async (lat: number, lng: number) => {
+    setLoadingAddress(true);
     try {
-      const addr = await reverseGeocodeCoordinates(lat, lng);
-      setAddressText(addr);
+      const addr = await obtenerDireccionDesdeCoordenadas(lat, lng);
+      if (addr && addr.trim()) {
+        setAddressText(addr);
+      } else {
+        setAddressText(`Ubicación seleccionada en el mapa (${lat.toFixed(4)}, ${lng.toFixed(4)})`);
+      }
     } catch (err) {
-      setAddressText(`Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`);
+      setAddressText(`Ubicación seleccionada en el mapa (${lat.toFixed(4)}, ${lng.toFixed(4)})`);
+    } finally {
+      setLoadingAddress(false);
     }
   };
 
@@ -202,7 +210,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
         setCenterLat(lat);
         setCenterLng(lng);
 
-        // Debounce la geocodificación inversa
+        // Debounce la geocodificación inversa (600ms despues de soltar/detener el mapa)
         if (addressTimeoutRef.current) {
           clearTimeout(addressTimeoutRef.current);
         }
@@ -216,15 +224,25 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
   }, []);
 
   const handleConfirm = () => {
+    const finalAddress =
+      addressText && addressText !== "Buscando dirección..."
+        ? addressText
+        : `Ubicación seleccionada en el mapa (${centerLat.toFixed(4)}, ${centerLng.toFixed(4)})`;
+
     onConfirmLocation({
       latitud: centerLat || DEFAULT_REGION.latitude,
       longitud: centerLng || DEFAULT_REGION.longitude,
-      direccion: addressText || "Ubicación en Colombia",
+      direccion: finalAddress,
     });
     onClose();
   };
 
-  const htmlContent = generatePickerHTML(centerLat, centerLng);
+  // Generar HTML inicial solo 1 vez al abrir el modal para evitar re-crear el mapa en cada arrastre
+  const initialHtmlContent = React.useMemo(() => {
+    const lat = initialCoords?.latitude || DEFAULT_REGION.latitude;
+    const lng = initialCoords?.longitude || DEFAULT_REGION.longitude;
+    return generatePickerHTML(lat, lng);
+  }, [visible]);
 
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
@@ -242,7 +260,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
         <View style={styles.mapContainer}>
           <WebView
             ref={webViewRef}
-            source={{ html: htmlContent }}
+            source={{ html: initialHtmlContent }}
             style={styles.map}
             originWhitelist={["*"]}
             javaScriptEnabled={true}

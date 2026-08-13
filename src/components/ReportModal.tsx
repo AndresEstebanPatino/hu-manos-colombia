@@ -62,11 +62,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
-    if (!userId || userId.startsWith("guest-") || userId === "anonimo") {
-      Alert.alert(
-        "Inicio de Sesión Requerido",
-        "Necesitas iniciar sesión para poder enviar un reporte."
-      );
+    if (!userId) {
+      Alert.alert("Identificación Requerida", "Debes tener una sesión activa para reportar.");
       return;
     }
 

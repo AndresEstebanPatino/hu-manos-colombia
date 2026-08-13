@@ -4,6 +4,7 @@ export const INITIAL_MOCK_NEEDS: Necesidad[] = [
   {
     id: "need-001",
     tipo: "RECURSO",
+    modo: "SOLICITUD",
     categoria: "BEBES_LACTANCIA",
     titulo: "Urgente: Nodriza / Leche materna para bebé de 7 meses",
     descripcion: "Bebé de 7 meses rescatado en albergue temporal necesita fórmula láctea etapa 2 o nodriza voluntaria. La madre se encuentra incapacitada temporalmente.",
@@ -20,6 +21,7 @@ export const INITIAL_MOCK_NEEDS: Necesidad[] = [
   {
     id: "need-002",
     tipo: "VOLUNTARIO",
+    modo: "SOLICITUD",
     categoria: "MANO_DE_OBRA",
     titulo: "Se solicitan 10 voluntarios para mover escombros y limpiar vía",
     descripcion: "Por deslizamiento de tierra se requiere apoyo con palas, carretillas y botas para despejar la vía principal de acceso a la vereda.",

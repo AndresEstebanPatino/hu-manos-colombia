@@ -46,6 +46,7 @@ export default function FeedScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAuthInitial, setShowAuthInitial] = useState(false);
   const [viewMode, setViewMode] = useState<"LIST" | "MAP">("LIST");
+  const [modoFilter, setModoFilter] = useState<"TODO" | "SOLICITUD" | "OFERTA">("TODO");
 
   const loadData = useCallback(async () => {
     try {
@@ -137,6 +138,11 @@ export default function FeedScreen() {
 
     if (showCompleted !== isClosedManually) return false;
 
+    if (modoFilter !== "TODO") {
+      const itemModo = item.modo || "SOLICITUD";
+      if (itemModo !== modoFilter) return false;
+    }
+
     if (selectedCategory !== "TODAS" && item.categoria !== selectedCategory) {
       return false;
     }
@@ -206,6 +212,63 @@ export default function FeedScreen() {
               </Text>
             </TouchableOpacity>
           </View>
+        </View>
+
+        {/* Filtro por Modo: Todas / Solicitudes / Ofertas */}
+        <View style={styles.modoFilterRow}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={[
+              styles.modoFilterChip,
+              modoFilter === "TODO" && styles.modoFilterChipActive,
+            ]}
+            onPress={() => setModoFilter("TODO")}
+          >
+            <Text
+              style={[
+                styles.modoFilterText,
+                modoFilter === "TODO" && styles.modoFilterTextActive,
+              ]}
+            >
+              Todas ({needs.length})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={[
+              styles.modoFilterChip,
+              modoFilter === "SOLICITUD" && styles.modoFilterChipSolicitudActive,
+            ]}
+            onPress={() => setModoFilter("SOLICITUD")}
+          >
+            <Text
+              style={[
+                styles.modoFilterText,
+                modoFilter === "SOLICITUD" && styles.modoFilterTextSolicitudActive,
+              ]}
+            >
+              🆘 Solicitudes ({needs.filter((n) => (n.modo || "SOLICITUD") === "SOLICITUD").length})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={[
+              styles.modoFilterChip,
+              modoFilter === "OFERTA" && styles.modoFilterChipOfertaActive,
+            ]}
+            onPress={() => setModoFilter("OFERTA")}
+          >
+            <Text
+              style={[
+                styles.modoFilterText,
+                modoFilter === "OFERTA" && styles.modoFilterTextOfertaActive,
+              ]}
+            >
+              🤝 Ofertas ({needs.filter((n) => n.modo === "OFERTA").length})
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Carousel / Scroll Horizontal de Categorías */}
@@ -385,6 +448,48 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontWeight: "700",
     fontSize: 13,
+  },
+  modoFilterRow: {
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  modoFilterChip: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modoFilterChipActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  modoFilterChipSolicitudActive: {
+    backgroundColor: "#DC2626",
+    borderColor: "#DC2626",
+  },
+  modoFilterChipOfertaActive: {
+    backgroundColor: "#059669",
+    borderColor: "#059669",
+  },
+  modoFilterText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.text,
+  },
+  modoFilterTextActive: {
+    color: "#FFFFFF",
+  },
+  modoFilterTextSolicitudActive: {
+    color: "#FFFFFF",
+  },
+  modoFilterTextOfertaActive: {
+    color: "#FFFFFF",
   },
   demoSeedButton: {
     flexDirection: "row",

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import Svg, { Defs, ClipPath, Path, G, Rect } from "react-native-svg";
 import { COLORS } from "../constants/theme";
 import { useNotifications } from "../context/NotificationContext";
 import { useAuth } from "../context/AuthContext";
@@ -42,7 +43,30 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Top Banner Branding: Logo + Nombre */}
       <View style={styles.topRow}>
         <View style={styles.logoBadge}>
-          <Ionicons name="heart" size={22} color="#FFFFFF" />
+          <Svg width={28} height={28} viewBox="0 0 200 200">
+            <Defs>
+              <ClipPath id="heartClip">
+                <Path d="M100,180 C40,120 10,80 10,55 C10,25 35,5 60,5 C80,5 95,20 100,40 C105,20 120,5 140,5 C165,5 190,25 190,55 C190,80 160,120 100,180 Z" />
+              </ClipPath>
+            </Defs>
+            <G clipPath="url(#heartClip)">
+              <Rect x="0" y="0" width="200" height="92.5" fill="#FCD116" />
+              <Rect x="0" y="92.5" width="200" height="43.75" fill="#003893" />
+              <Rect x="0" y="136.25" width="200" height="63.75" fill="#CE1126" />
+            </G>
+            <Path
+              d="M100,180 C40,120 10,80 10,55 C10,25 35,5 60,5 C80,5 95,20 100,40 C105,20 120,5 140,5 C165,5 190,25 190,55 C190,80 160,120 100,180 Z"
+              fill="none"
+              stroke="#00000022"
+              strokeWidth={1}
+            />
+            <G transform="translate(100,97) scale(0.52) translate(-100,-97)">
+              <Path
+                d="M100,180 C40,120 10,80 10,55 C10,25 35,5 60,5 C80,5 95,20 100,40 C105,20 120,5 140,5 C165,5 190,25 190,55 C190,80 160,120 100,180 Z"
+                fill="#FFFFFF"
+              />
+            </G>
+          </Svg>
         </View>
         <View style={styles.titleContainer}>
           <Text style={styles.brandTitle}>Hu-Manos Colombia</Text>
@@ -217,15 +241,17 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: COLORS.primary,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: COLORS.border,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 10,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   titleContainer: {
     flex: 1,

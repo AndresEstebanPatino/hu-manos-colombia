@@ -11,13 +11,14 @@ import {
   SafeAreaView,
   Platform,
   useWindowDimensions,
+  Image,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Necesidad } from "../../src/types/need";
 import { getNeeds, incrementNeedProgress, toggleNeedCompleted, getTimeAgo } from "../../src/services/storage";
-import { CategoryBadge, TypeBadge } from "../../src/components/StatusBadge";
+import { CategoryBadge, TypeBadge, ModoBadge } from "../../src/components/StatusBadge";
 import { ProgressBar } from "../../src/components/ProgressBar";
 import { COLORS } from "../../src/constants/theme";
 import { useAuth } from "../../src/context/AuthContext";
@@ -132,7 +133,7 @@ export default function DetailScreen() {
     if (!hasWhatsApp) return;
     const rawNumber = need.contacto_whatsapp.replace(/\D/g, "");
     const cleanNumber = rawNumber.startsWith("57") ? rawNumber : `57${rawNumber}`;
-    const message = `Hola, vi tu solicitud en Hu-Mano Colombia: "${need.titulo}". Quiero ayudar. ¿Cómo coordinamos?`;
+    const message = `Hola, vi tu solicitud en Hu-Manos Colombia: "${need.titulo}". Quiero ayudar. ¿Cómo coordinamos?`;
     const whatsappUrl = `https://wa.me/${cleanNumber}?text=${encodeURIComponent(message)}`;
 
     try {
@@ -215,6 +216,7 @@ export default function DetailScreen() {
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom + 24, 40) }]}>
         {/* Header Badges */}
         <View style={styles.badgeRow}>
+          <ModoBadge modo={need.modo} />
           <CategoryBadge category={need.categoria} />
           <TypeBadge type={need.tipo} />
           <Text style={styles.timeText}>{getTimeAgo(need.creado_en)}</Text>
@@ -222,6 +224,17 @@ export default function DetailScreen() {
 
         {/* Title */}
         <Text style={styles.title}>{need.titulo}</Text>
+
+        {/* Imagen principal de la necesidad */}
+        {need.imagen_url ? (
+          <View style={styles.detailImageContainer}>
+            <Image
+              source={{ uri: need.imagen_url }}
+              style={styles.detailImage}
+              resizeMode="cover"
+            />
+          </View>
+        ) : null}
 
         {/* Location Banner */}
         <View style={styles.locationBanner}>
@@ -234,12 +247,15 @@ export default function DetailScreen() {
 
         {/* Progress Card */}
         <View style={styles.progressCard}>
-          <Text style={styles.sectionHeader}>Estado del Apoyo Comunitario</Text>
+          <Text style={styles.sectionHeader}>
+            {need.modo === "OFERTA" ? "Estado de la Oferta de Ayuda" : "Estado del Apoyo Comunitario"}
+          </Text>
           <ProgressBar
             current={need.progreso_actual}
             total={need.meta_cantidad}
             unit={need.unidad_medida || "ayudas"}
             isCompleted={isCompleted}
+            modo={need.modo}
           />
         </View>
 
@@ -453,6 +469,19 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: COLORS.text,
     lineHeight: 28,
+  },
+  detailImageContainer: {
+    borderRadius: 16,
+    overflow: "hidden",
+    marginTop: 4,
+    marginBottom: 4,
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  detailImage: {
+    width: "100%",
+    height: 220,
   },
   locationBanner: {
     flexDirection: "row",

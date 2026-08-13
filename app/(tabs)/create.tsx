@@ -16,8 +16,8 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { CategoriaNecesidad, TipoNecesidad } from "../../src/types/need";
-import { createNeed, formatWhatsAppNumber } from "../../src/services/storage";
+import { CategoriaNecesidad, TipoNecesidad, ModoNecesidad } from "../../src/types/need";
+import { createNeed, formatWhatsAppNumber, getValidSupabaseUserId } from "../../src/services/storage";
 import { CATEGORY_CONFIGS, COLORS } from "../../src/constants/theme";
 import { useNotifications } from "../../src/context/NotificationContext";
 import { useAuth } from "../../src/context/AuthContext";
@@ -32,6 +32,7 @@ import {
 } from "../../src/services/nominatimGeocoding";
 import {
   compressImageForUpload,
+  uploadImageToSupabaseStorage,
   SUPABASE_STORAGE_BUCKET,
 } from "../../src/services/imageCompression";
 
@@ -87,6 +88,7 @@ export default function CreateNeedScreen() {
   const { showToast } = useNotifications();
   const { user } = useAuth();
 
+  const [modo, setModo] = useState<ModoNecesidad>("SOLICITUD");
   const [tipo, setTipo] = useState<TipoNecesidad>("RECURSO");
   const [categoria, setCategoria] = useState<CategoriaNecesidad>("ALIMENTOS");
   const [titulo, setTitulo] = useState("");
@@ -156,53 +158,70 @@ export default function CreateNeedScreen() {
     setUnidadMedida(currentUnitInfo.defaultUnit);
   }, [tipo, categoria]);
 
-  const handlePickImage = async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert("Permiso requerido", "Activa el acceso a la galería en la configuración del dispositivo.");
-        return;
-      }
+  const handleSelectImageSource = () => {
+    Alert.alert(
+      "📷 Agregar Foto a la Solicitud",
+      "Elige de dónde deseas capturar o seleccionar la imagen:",
+      [
+        {
+          text: "📷 Tomar Foto con la Cámara",
+          onPress: () => processImagePick("CAMERA"),
+        },
+        {
+          text: "🖼️ Elegir de la Galería",
+          onPress: () => processImagePick("GALLERY"),
+        },
+        {
+          text: "Cancelar",
+          style: "cancel",
+        },
+      ]
+    );
+  };
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.7,
-      });
+  const processImagePick = async (sourceType: "CAMERA" | "GALLERY") => {
+    try {
+      let result: ImagePicker.ImagePickerResult;
+
+      if (sourceType === "CAMERA") {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== "granted") {
+          Alert.alert("Permiso requerido", "Activa el permiso de cámara en la configuración del dispositivo.");
+          return;
+        }
+        result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: false,
+          quality: 0.8,
+        });
+      } else {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== "granted") {
+          Alert.alert("Permiso requerido", "Activa el acceso a la galería en la configuración del dispositivo.");
+          return;
+        }
+        result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: false,
+          quality: 0.8,
+        });
+      }
 
       if (!result.canceled && result.assets[0]?.uri) {
         const rawUri = result.assets[0].uri;
         setImagenUri(rawUri);
         setImagenUrl(null);
 
-        // Subir a Supabase Storage (bucket: necesidades-fotos)
+        // Subir a Supabase Storage mediante función unificada que usa FileSystem + base64
         if (isSupabaseConfigured()) {
           setUploadingImage(true);
           try {
-            // Comprimir la imagen antes de subirla para ahorrar storage y egress
-            const compressedUri = await compressImageForUpload(rawUri);
-            const fileName = `necesidad-${Date.now()}.jpg`;
-            const response = await fetch(compressedUri);
-            const blob = await response.blob();
-
-            const { data: uploadData, error: uploadError } = await supabase.storage
-              .from(SUPABASE_STORAGE_BUCKET)
-              .upload(fileName, blob, {
-                contentType: "image/jpeg",
-                upsert: false,
-              });
-
-            if (!uploadError && uploadData) {
-              const { data: publicData } = supabase.storage
-                .from(SUPABASE_STORAGE_BUCKET)
-                .getPublicUrl(uploadData.path);
-              setImagenUrl(publicData?.publicUrl || null);
-            } else {
-              console.log("Upload info:", uploadError?.message);
-            }
-          } catch (uploadErr) {
-            console.log("Upload catch:", uploadErr);
+            await getValidSupabaseUserId();
+            const publicUrl = await uploadImageToSupabaseStorage(rawUri);
+            setImagenUrl(publicUrl);
+          } catch (uploadErr: any) {
+            console.error("Upload error:", uploadErr);
+            Alert.alert("⚠️ Error al subir foto", `No se pudo subir la foto al servidor: ${uploadErr?.message || "Error de red."}`);
           } finally {
             setUploadingImage(false);
           }
@@ -266,6 +285,7 @@ export default function CreateNeedScreen() {
     try {
       const created = await createNeed({
         tipo,
+        modo,
         categoria,
         titulo: titulo.trim(),
         descripcion: descripcion.trim(),
@@ -273,7 +293,7 @@ export default function CreateNeedScreen() {
         contacto_whatsapp: whatsapp.trim() ? formatWhatsAppNumber(whatsapp.trim()) : "Opcional",
         meta_cantidad: cantidadNum,
         unidad_medida: unidadMedida.trim() || currentUnitInfo.defaultUnit,
-        creador_id: user?.id || "anonimo",
+        creador_id: user?.id,
         latitud: finalLat,
         longitud: finalLng,
         imagen_url: imagenUrl || undefined,
@@ -296,7 +316,7 @@ export default function CreateNeedScreen() {
         created.titulo,
         created.ubicacion,
         created.id,
-        created.creador_id || user?.id || "anonimo"
+        created.creador_id || user?.id
       );
 
       // Limpiar formulario y volver al feed principal
@@ -330,15 +350,65 @@ export default function CreateNeedScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Publicar Solicitud de Ayuda</Text>
+          <Text style={styles.headerTitle}>
+            {modo === "SOLICITUD" ? "Publicar Solicitud de Ayuda" : "Publicar Oferta de Ayuda"}
+          </Text>
           <Text style={styles.headerSubtitle}>
-            Sin registros ni esperas. Tu comunidad te escucha.
+            {modo === "SOLICITUD"
+              ? "Sin registros ni esperas. Tu comunidad te escucha."
+              : "Comparte víveres, transporte o tu tiempo con la comunidad."}
           </Text>
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+          {/* Selector de Modo: SOLICITUD vs OFERTA */}
+          <Text style={styles.label}>¿Qué deseas publicar?</Text>
+          <View style={styles.modoSelectorRow}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={[
+                styles.modoOptionCard,
+                modo === "SOLICITUD" && styles.modoOptionCardSolicitud,
+              ]}
+              onPress={() => setModo("SOLICITUD")}
+            >
+              <Text style={styles.modoIconEmoji}>🆘</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.modoTitleText, modo === "SOLICITUD" && styles.modoTitleTextSolicitud]}>
+                  Necesito Ayuda
+                </Text>
+                <Text style={styles.modoDescText}>Publicar una solicitud</Text>
+              </View>
+              {modo === "SOLICITUD" ? (
+                <Ionicons name="checkmark-circle" size={20} color={COLORS.danger} />
+              ) : null}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={[
+                styles.modoOptionCard,
+                modo === "OFERTA" && styles.modoOptionCardOferta,
+              ]}
+              onPress={() => setModo("OFERTA")}
+            >
+              <Text style={styles.modoIconEmoji}>🤝</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.modoTitleText, modo === "OFERTA" && styles.modoTitleTextOferta]}>
+                  Puedo Ofrecer Ayuda
+                </Text>
+                <Text style={styles.modoDescText}>Publicar donación o apoyo</Text>
+              </View>
+              {modo === "OFERTA" ? (
+                <Ionicons name="checkmark-circle" size={20} color="#059669" />
+              ) : null}
+            </TouchableOpacity>
+          </View>
+
           {/* Selector de Tipo (Recurso vs Voluntario) */}
-          <Text style={styles.label}>1. ¿Qué estás necesitando?</Text>
+          <Text style={styles.label}>
+            {modo === "SOLICITUD" ? "1. ¿Qué estás necesitando?" : "1. ¿Qué estás ofreciendo?"}
+          </Text>
           <View style={styles.typeSelector}>
             <TouchableOpacity
               activeOpacity={0.8}
@@ -360,10 +430,12 @@ export default function CreateNeedScreen() {
                     tipo === "RECURSO" && styles.typeOptionTitleSelectedResource,
                   ]}
                 >
-                  Donación de Recurso
+                  {modo === "SOLICITUD" ? "Donación de Recurso" : "Recurso / Bien Físico"}
                 </Text>
                 <Text style={styles.typeOptionDesc}>
-                  Alimentos, cobijas, pañales, medicinas o kits.
+                  {modo === "SOLICITUD"
+                    ? "Alimentos, cobijas, pañales, medicinas o kits."
+                    : "Alimentos sobrantes, ropa, cobijas, agua o suministros."}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -388,10 +460,12 @@ export default function CreateNeedScreen() {
                     tipo === "VOLUNTARIO" && styles.typeOptionTitleSelectedVoluntario,
                   ]}
                 >
-                  Manos Voluntarias
+                  {modo === "SOLICITUD" ? "Manos Voluntarias" : "Tiempo / Manos Voluntarias"}
                 </Text>
                 <Text style={styles.typeOptionDesc}>
-                  Remoción de escombros, cocina comunitaria, médicos o transporte.
+                  {modo === "SOLICITUD"
+                    ? "Remoción de escombros, cocina comunitaria o médicos."
+                    : "Camioneta 4x4, apoyo en remoción, cocina o curaciones."}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -430,14 +504,20 @@ export default function CreateNeedScreen() {
             })}
           </ScrollView>
 
-          {/* Título de la Necesidad */}
-          <Text style={styles.label}>3. Título claro y conciso *</Text>
+          {/* Título de la Necesidad / Oferta */}
+          <Text style={styles.label}>
+            {modo === "SOLICITUD" ? "3. Título descriptivo de la solicitud *" : "3. Título descriptivo de la oferta *"}
+          </Text>
           <TextInput
             style={styles.input}
             placeholder={
-              tipo === "VOLUNTARIO"
-                ? "Ej: Se necesitan 10 personas para despejar vía derrumbada"
-                : "Ej: Se requieren 15 cobijas térmicas y colchonetas"
+              modo === "SOLICITUD"
+                ? tipo === "VOLUNTARIO"
+                  ? "Ej: Se necesitan 10 personas para despejar vía derrumbada"
+                  : "Ej: Se requieren 15 cobijas térmicas y colchonetas"
+                : tipo === "VOLUNTARIO"
+                ? "Ej: Ofrezco camioneta 4x4 y tiempo para transporte de víveres"
+                : "Ej: Dispongo de 20 paquetes de agua y cobijas limpias"
             }
             placeholderTextColor="#94A3B8"
             value={titulo}
@@ -448,7 +528,9 @@ export default function CreateNeedScreen() {
           {/* Meta y Unidad Dinámica */}
           <View style={styles.rowTwoInputs}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.label}>4. Meta requerida *</Text>
+              <Text style={styles.label}>
+                {modo === "SOLICITUD" ? "4. Meta requerida *" : "4. Cantidad disponible *"}
+              </Text>
               <TextInput
                 style={styles.input}
                 placeholder="Ej: 10"
@@ -573,13 +655,16 @@ export default function CreateNeedScreen() {
             </View>
           ) : null}
 
-          {/* Número de WhatsApp */}
+          {/* Número de WhatsApp con Selector de Código de País (+57 por defecto) */}
           <Text style={styles.label}>7. Número de WhatsApp / Celular (Opcional)</Text>
           <View style={styles.inputWithIcon}>
             <Ionicons name="logo-whatsapp" size={20} color={COLORS.whatsappGreen} style={{ marginLeft: 12 }} />
+            <View style={styles.countryCodeBadge}>
+              <Text style={styles.countryCodeBadgeText}>🇨🇴 +57</Text>
+            </View>
             <TextInput
               style={styles.inputFlex}
-              placeholder="Ej: 3125550192 (se añade +57 automáticamente)"
+              placeholder="3125550192"
               placeholderTextColor="#94A3B8"
               value={whatsapp}
               onChangeText={setWhatsapp}
@@ -604,7 +689,7 @@ export default function CreateNeedScreen() {
           <Text style={styles.label}>9. Foto del lugar o recurso (Opcional)</Text>
           <TouchableOpacity
             style={styles.imagePickerBtn}
-            onPress={handlePickImage}
+            onPress={handleSelectImageSource}
             activeOpacity={0.8}
             disabled={uploadingImage}
           >
@@ -614,7 +699,7 @@ export default function CreateNeedScreen() {
                 ? "Subiendo imagen..."
                 : imagenUri
                 ? "Cambiar foto seleccionada"
-                : "Adjuntar foto de galería"}
+                : "Adjuntar foto (Cámara o Galería)"}
             </Text>
             {imagenUrl ? <Ionicons name="checkmark-circle" size={18} color="#16A34A" /> : null}
           </TouchableOpacity>
@@ -642,16 +727,26 @@ export default function CreateNeedScreen() {
             </View>
           ) : null}
 
-          {/* Botón de Publicación */}
+          {/* Botón de Publicación Dinámico según Modo */}
           <TouchableOpacity
             activeOpacity={0.85}
-            style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
+            style={[
+              styles.submitButton,
+              modo === "OFERTA" && styles.submitButtonOferta,
+              submitting && styles.submitButtonDisabled,
+            ]}
             onPress={handleSubmit}
             disabled={submitting || uploadingImage}
           >
-            <Ionicons name="paper-plane-sharp" size={20} color="#FFFFFF" />
+            <Ionicons name={modo === "SOLICITUD" ? "paper-plane-sharp" : "heart"} size={20} color="#FFFFFF" />
             <Text style={styles.submitButtonText}>
-              {submitting ? "Publicando en Colombia..." : "Publicar Solicitud Ahora"}
+              {submitting
+                ? modo === "SOLICITUD"
+                  ? "Publicando Solicitud..."
+                  : "Publicando Oferta..."
+                : modo === "SOLICITUD"
+                ? "Publicar Solicitud Ahora"
+                : "Publicar Oferta de Ayuda"}
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -693,7 +788,63 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 140,
+  },
+  modoSelectorRow: {
+    gap: 10,
+    marginBottom: 8,
+  },
+  modoOptionCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    gap: 12,
+  },
+  modoOptionCardSolicitud: {
+    backgroundColor: "#FEF2F2",
+    borderColor: "#FCA5A5",
+  },
+  modoOptionCardOferta: {
+    backgroundColor: "#ECFDF5",
+    borderColor: "#A7F3D0",
+  },
+  modoIconEmoji: {
+    fontSize: 24,
+  },
+  modoTitleText: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: COLORS.text,
+  },
+  modoTitleTextSolicitud: {
+    color: COLORS.danger,
+  },
+  modoTitleTextOferta: {
+    color: "#047857",
+  },
+  modoDescText: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
+  countryCodeBadge: {
+    backgroundColor: "#F1F5F9",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginLeft: 6,
+    marginRight: 4,
+  },
+  countryCodeBadgeText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: COLORS.text,
   },
   label: {
     fontSize: 13,
@@ -953,6 +1104,10 @@ const styles = StyleSheet.create({
   },
   submitButtonDisabled: {
     opacity: 0.6,
+  },
+  submitButtonOferta: {
+    backgroundColor: "#059669",
+    shadowColor: "#059669",
   },
   submitButtonText: {
     color: "#FFFFFF",

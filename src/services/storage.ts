@@ -125,6 +125,7 @@ export const createNeed = async (
 ): Promise<Necesidad> => {
   const newNeed: Necesidad = {
     ...newNeedData,
+    modo: newNeedData.modo || "SOLICITUD",
     id: `need-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
     contacto_whatsapp: formatWhatsAppNumber(newNeedData.contacto_whatsapp),
     progreso_actual: 0,
@@ -410,10 +411,10 @@ export const reportScamNeed = async (
   razon: ReportReason = "PIDE_DINERO",
   comentario?: string
 ): Promise<ReportResult> => {
-  if (!userId || userId.startsWith("guest-") || userId === "anonimo") {
+  if (!userId) {
     return {
       success: false,
-      message: "Debes iniciar sesión con tu cuenta para poder reportar una solicitud.",
+      message: "Debes identificarte para poder reportar una solicitud.",
     };
   }
 

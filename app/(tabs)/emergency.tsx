@@ -144,7 +144,7 @@ export default function EmergencyScreen() {
           </View>
         </View>
 
-        {/* Botón a Políticas y Sobre Hu-Mano Colombia */}
+        {/* Botón a Políticas y Sobre Hu-Manos Colombia */}
         <TouchableOpacity
           activeOpacity={0.8}
           style={{
@@ -164,7 +164,7 @@ export default function EmergencyScreen() {
         >
           <Ionicons name="shield-checkmark" size={18} color={COLORS.primary} />
           <Text style={{ fontSize: 13.5, fontWeight: "700", color: COLORS.text }}>
-            Ver Políticas de Uso y Sobre Hu-Mano Colombia 🤝
+            Ver Políticas de Uso y Sobre Hu-Manos Colombia 🤝
           </Text>
         </TouchableOpacity>
       </ScrollView>

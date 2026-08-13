@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { CategoriaNecesidad, TipoNecesidad } from "../types/need";
+import { CategoriaNecesidad, TipoNecesidad, ModoNecesidad } from "../types/need";
 import { CATEGORY_CONFIGS, COLORS } from "../constants/theme";
 
 interface CategoryBadgeProps {
@@ -43,6 +43,31 @@ export const TypeBadge: React.FC<TypeBadgeProps> = ({ type }) => {
   );
 };
 
+interface ModoBadgeProps {
+  modo?: ModoNecesidad;
+}
+
+export const ModoBadge: React.FC<ModoBadgeProps> = ({ modo = "SOLICITUD" }) => {
+  const isOferta = modo === "OFERTA";
+  return (
+    <View
+      style={[
+        styles.typeBadge,
+        isOferta ? styles.ofertaBadge : styles.solicitudBadge,
+      ]}
+    >
+      <Text
+        style={[
+          styles.typeBadgeText,
+          isOferta ? styles.ofertaText : styles.solicitudText,
+        ]}
+      >
+        {isOferta ? "🤝 OFERTA" : "🆘 SOLICITUD"}
+      </Text>
+    </View>
+  );
+};
+
 const styles = StyleSheet.create({
   badge: {
     flexDirection: "row",
@@ -68,6 +93,20 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
   },
+  solicitudBadge: {
+    backgroundColor: "#FEF2F2",
+    borderColor: "#FCA5A5",
+  },
+  solicitudText: {
+    color: "#DC2626",
+  },
+  ofertaBadge: {
+    backgroundColor: "#ECFDF5",
+    borderColor: "#6EE7B7",
+  },
+  ofertaText: {
+    color: "#059669",
+  },
   resourceBadge: {
     backgroundColor: COLORS.primaryLight,
     borderColor: "#BFDBFE",
@@ -87,4 +126,3 @@ const styles = StyleSheet.create({
     color: COLORS.neutralDark,
   },
 });
-

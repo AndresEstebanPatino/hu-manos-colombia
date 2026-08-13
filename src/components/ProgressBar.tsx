@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
+import { ModoNecesidad } from "../types/need";
 import { COLORS } from "../constants/theme";
 
 interface ProgressBarProps {
@@ -7,6 +8,7 @@ interface ProgressBarProps {
   total: number;
   unit?: string;
   isCompleted?: boolean;
+  modo?: ModoNecesidad;
 }
 
 export const ProgressBar: React.FC<ProgressBarProps> = ({
@@ -14,22 +16,28 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   total,
   unit = "ayudas",
   isCompleted = false,
+  modo = "SOLICITUD",
 }) => {
+  const isOferta = modo === "OFERTA";
   const percentage = Math.min(Math.round((current / Math.max(total, 1)) * 100), 100);
   const isMetaReached = current >= total;
-  const barColor = isCompleted || isMetaReached ? COLORS.secondary : COLORS.primary;
+  const barColor = isCompleted || isMetaReached ? COLORS.secondary : isOferta ? "#059669" : COLORS.primary;
 
   return (
     <View style={styles.container}>
       <View style={styles.labelRow}>
         <Text style={styles.progressText}>
-          <Text style={styles.currentNumber}>{current}</Text> de {total} {unit}
+          <Text style={styles.currentNumber}>{current}</Text> de {total} {unit} {isOferta ? "(ofrecidos)" : "(necesitados)"}
         </Text>
         <Text style={[styles.percentageText, { color: barColor }]}>
           {isCompleted
-            ? "✅ Cubierta / Cerrada"
+            ? isOferta
+              ? "✅ Oferta Entregada / Finalizada"
+              : "✅ Cubierta / Cerrada"
             : isMetaReached
-            ? `🎉 Meta Alcanzada (${unit})`
+            ? isOferta
+              ? "🎉 Toda la oferta entregada"
+              : `🎉 Meta Alcanzada (${unit})`
             : `${percentage}%`}
         </Text>
       </View>

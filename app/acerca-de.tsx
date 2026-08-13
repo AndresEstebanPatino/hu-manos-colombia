@@ -19,7 +19,7 @@ export default function AcercaDeScreen() {
   const insets = useSafeAreaInsets();
 
   const handleOpenEmail = async () => {
-    const emailUrl = "mailto:andresp199519@gmail.com?subject=Reporte%20Hu-Mano%20Colombia";
+    const emailUrl = "mailto:andresp199519@gmail.com?subject=Reporte%20Hu-Manos%20Colombia";
     try {
       const canOpen = await Linking.canOpenURL(emailUrl);
       if (canOpen || Platform.OS === "web") {
@@ -62,9 +62,9 @@ export default function AcercaDeScreen() {
       >
         {/* Banner Hero */}
         <View style={styles.heroCard}>
-          <Text style={styles.heroTitle}>🤝 Sobre Hu-Mano Colombia</Text>
+          <Text style={styles.heroTitle}>🤝 Sobre Hu-Manos Colombia</Text>
           <Text style={styles.heroBody}>
-            Hu-Mano Colombia nació en medio de una emergencia, en cuestión de días, con el único propósito de ayudar a conectar a quienes necesitan apoyo con quienes pueden darlo. La hice yo solo, como desarrollador, motivado por el deseo de aportar con lo que sé hacer.
+            Hu-Manos Colombia nació en medio de una emergencia, en cuestión de días, con el único propósito de ayudar a conectar a quienes necesitan apoyo con quienes pueden darlo. La hice yo solo, como desarrollador, motivado por el deseo de aportar con lo que sé hacer.
           </Text>
           <Text style={styles.heroSubText}>Por eso es importante que sepas:</Text>
         </View>

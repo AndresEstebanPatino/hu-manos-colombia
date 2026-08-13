@@ -154,8 +154,9 @@ export const NeedMap: React.FC<NeedMapProps> = ({ needs, onSelectNeed }) => {
   const markers = needs
     .filter((need) => need && need.id)
     .map((need) => {
+      const isOferta = need.modo === "OFERTA";
       const coords = getResolvedCoordinates(need);
-      const color = getMarkerColor(need.categoria, need.completado);
+      const color = isOferta ? "#059669" : getMarkerColor(need.categoria, need.completado);
       const catConfig = CATEGORY_CONFIGS[need.categoria];
 
       return {
@@ -163,10 +164,10 @@ export const NeedMap: React.FC<NeedMapProps> = ({ needs, onSelectNeed }) => {
         lat: coords.latitude,
         lng: coords.longitude,
         color,
-        emoji: catConfig?.emoji || "📌",
-        titulo: need.titulo || "Solicitud de ayuda",
+        emoji: isOferta ? "🤝" : catConfig?.emoji || "📌",
+        titulo: need.titulo || (isOferta ? "Oferta de ayuda" : "Solicitud de ayuda"),
         ubicacion: need.ubicacion || "Colombia",
-        progreso: `Progreso: ${need.progreso_actual} / ${need.meta_cantidad} ${need.unidad_medida || "ayudas"}`,
+        progreso: `${isOferta ? "Disponibles" : "Progreso"}: ${need.progreso_actual || 0} / ${need.meta_cantidad || 1} ${need.unidad_medida || "ayudas"}`,
       };
     });
 

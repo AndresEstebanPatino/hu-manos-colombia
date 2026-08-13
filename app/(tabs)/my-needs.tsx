@@ -20,7 +20,8 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Necesidad, CategoriaNecesidad, TipoNecesidad } from "../../src/types/need";
+import { Necesidad, CategoriaNecesidad, TipoNecesidad, ModoNecesidad } from "../../src/types/need";
+import { ModoBadge } from "../../src/components/StatusBadge";
 import {
   getUserNeeds,
   updateNeed,
@@ -28,6 +29,7 @@ import {
   deleteNeed,
   getTimeAgo,
   formatWhatsAppNumber,
+  getValidSupabaseUserId,
 } from "../../src/services/storage";
 import { CATEGORY_CONFIGS, COLORS } from "../../src/constants/theme";
 import { useAuth } from "../../src/context/AuthContext";
@@ -42,6 +44,7 @@ import {
 } from "../../src/services/nominatimGeocoding";
 import {
   compressImageForUpload,
+  uploadImageToSupabaseStorage,
   SUPABASE_STORAGE_BUCKET,
 } from "../../src/services/imageCompression";
 
@@ -106,7 +109,7 @@ export default function MyNeedsScreen() {
 
   // --- ACCIÓN: MARCAR COMO CUBIERTA / REABRIR ---
   const handleToggleCompleted = async (item: Necesidad) => {
-    if (!user || (item.creador_id !== user.id && item.creador_id !== "anonimo")) {
+    if (!user || item.creador_id !== user.id) {
       Alert.alert("Acceso denegado", "Solo el creador de la necesidad puede modificar su estado.");
       return;
     }
@@ -132,7 +135,7 @@ export default function MyNeedsScreen() {
 
   // --- ACCIÓN: ELIMINAR SOLICITUD ---
   const handleDelete = (item: Necesidad) => {
-    if (!user || (item.creador_id !== user.id && item.creador_id !== "anonimo")) {
+    if (!user || item.creador_id !== user.id) {
       Alert.alert("Acceso denegado", "Solo el creador puede eliminar esta solicitud.");
       return;
     }
@@ -161,7 +164,7 @@ export default function MyNeedsScreen() {
 
   // --- ACCIÓN: ABRIR MODAL DE EDICIÓN ---
   const handleOpenEdit = (item: Necesidad) => {
-    if (!user || (item.creador_id !== user.id && item.creador_id !== "anonimo")) {
+    if (!user || item.creador_id !== user.id) {
       Alert.alert("Acceso denegado", "Solo el creador puede editar esta necesidad.");
       return;
     }
@@ -213,21 +216,55 @@ export default function MyNeedsScreen() {
     setShowSuggestions(false);
   };
 
-  // Selección de Imagen con Expo Image Picker
-  const handlePickImage = async () => {
-    try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) {
-        Alert.alert("Permiso Requerido", "Permite acceso a la galería para cambiar la foto.");
-        return;
-      }
+  // Selección de Imagen con Expo Image Picker (Cámara o Galería)
+  const handleSelectImageSource = () => {
+    Alert.alert(
+      "📷 Cambiar Foto de la Solicitud",
+      "Elige de dónde deseas capturar o seleccionar la nueva imagen:",
+      [
+        {
+          text: "📷 Tomar Foto con la Cámara",
+          onPress: () => processEditImagePick("CAMERA"),
+        },
+        {
+          text: "🖼️ Elegir de la Galería",
+          onPress: () => processEditImagePick("GALLERY"),
+        },
+        {
+          text: "Cancelar",
+          style: "cancel",
+        },
+      ]
+    );
+  };
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        quality: 0.8,
-        aspect: [4, 3],
-      });
+  const processEditImagePick = async (sourceType: "CAMERA" | "GALLERY") => {
+    try {
+      let result: ImagePicker.ImagePickerResult;
+
+      if (sourceType === "CAMERA") {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (!permission.granted) {
+          Alert.alert("Permiso Requerido", "Permite acceso a la cámara en la configuración.");
+          return;
+        }
+        result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: false,
+          quality: 0.8,
+        });
+      } else {
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) {
+          Alert.alert("Permiso Requerido", "Permite acceso a la galería para cambiar la foto.");
+          return;
+        }
+        result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: false,
+          quality: 0.8,
+        });
+      }
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const uri = result.assets[0].uri;
@@ -243,29 +280,19 @@ export default function MyNeedsScreen() {
     setUploadingImage(true);
 
     try {
-      // Comprimir la imagen antes de subirla para reducir el peso
-      const compressedUri = await compressImageForUpload(rawUri);
-      const response = await fetch(compressedUri);
-      const blob = await response.blob();
-      const filename = `need-${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+      await getValidSupabaseUserId();
+      const publicUrl = await uploadImageToSupabaseStorage(rawUri);
 
-      const { data, error } = await supabase.storage
-        .from(SUPABASE_STORAGE_BUCKET)
-        .upload(filename, blob, { contentType: "image/jpeg", upsert: true });
-
-      if (error) throw error;
-
-      const { data: publicUrlData } = supabase.storage
-        .from(SUPABASE_STORAGE_BUCKET)
-        .getPublicUrl(filename);
-
-      if (publicUrlData && publicUrlData.publicUrl) {
-        setEditImagenUrl(publicUrlData.publicUrl);
-        showToast("📸 Imagen cargada", "La nueva foto se actualizará al guardar", "success");
+      if (publicUrl) {
+        setEditImagenUrl(publicUrl);
+        showToast("📸 Foto cargada", "La nueva foto se actualizará al guardar.", "success");
       }
-    } catch (err) {
-      console.error("Error al subir imagen:", err);
-      showToast("Error", "No se pudo subir la imagen", "alert");
+    } catch (err: any) {
+      console.error("Error al subir foto en edición:", err);
+      Alert.alert(
+        "⚠️ Error al subir foto",
+        `No se pudo subir la foto al servidor: ${err?.message || "Error de red o almacenamiento."}`
+      );
     } finally {
       setUploadingImage(false);
     }
@@ -429,12 +456,13 @@ export default function MyNeedsScreen() {
             }
             renderItem={({ item }) => {
               const catConfig = CATEGORY_CONFIGS[item.categoria];
-              const isOwner = user && (item.creador_id === user.id || item.creador_id === "anonimo");
+              const isOwner = Boolean(user && item.creador_id === user.id);
 
               return (
                 <View style={[styles.card, item.completado && styles.cardCompleted]}>
                   {/* Top Bar: Categoría + Estado + Fecha */}
                   <View style={styles.cardHeaderRow}>
+                    <ModoBadge modo={item.modo} />
                     <View style={styles.categoryBadge}>
                       <Text style={styles.categoryEmoji}>{catConfig?.emoji || "📌"}</Text>
                       <Text style={styles.categoryLabel}>{catConfig?.label || item.categoria}</Text>
@@ -487,6 +515,7 @@ export default function MyNeedsScreen() {
                       current={item.progreso_actual}
                       total={item.meta_cantidad}
                       unit={item.unidad_medida || "unidades"}
+                      modo={item.modo}
                     />
                   </View>
 
@@ -652,13 +681,19 @@ export default function MyNeedsScreen() {
 
                   {/* WhatsApp */}
                   <Text style={styles.inputLabel}>6. WhatsApp / Celular de contacto</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={editWhatsapp}
-                    onChangeText={setEditWhatsapp}
-                    keyboardType="phone-pad"
-                    placeholder="Ej: 3125550192"
-                  />
+                  <View style={styles.inputWithIcon}>
+                    <Ionicons name="logo-whatsapp" size={18} color={COLORS.whatsappGreen} style={{ marginLeft: 10 }} />
+                    <View style={styles.countryCodeBadge}>
+                      <Text style={styles.countryCodeBadgeText}>🇨🇴 +57</Text>
+                    </View>
+                    <TextInput
+                      style={styles.textInputFlex}
+                      value={editWhatsapp}
+                      onChangeText={setEditWhatsapp}
+                      keyboardType="phone-pad"
+                      placeholder="3125550192"
+                    />
+                  </View>
 
                   {/* Foto Adjunta */}
                   <Text style={styles.inputLabel}>7. Imagen o fotografía (Opcional)</Text>
@@ -677,7 +712,7 @@ export default function MyNeedsScreen() {
                     <TouchableOpacity
                       style={styles.pickImageBtn}
                       activeOpacity={0.8}
-                      onPress={handlePickImage}
+                      onPress={handleSelectImageSource}
                       disabled={uploadingImage}
                     >
                       {uploadingImage ? (
@@ -1075,6 +1110,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 10,
+  },
+  countryCodeBadge: {
+    backgroundColor: "#F1F5F9",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginLeft: 6,
+  },
+  countryCodeBadgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.text,
   },
   textInputFlex: {
     flex: 1,

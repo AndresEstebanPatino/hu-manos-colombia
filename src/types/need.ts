@@ -1,4 +1,5 @@
 export type TipoNecesidad = "RECURSO" | "VOLUNTARIO";
+export type ModoNecesidad = "SOLICITUD" | "OFERTA";
 
 export type CategoriaNecesidad =
   | "BEBES_LACTANCIA"
@@ -11,6 +12,7 @@ export type CategoriaNecesidad =
 export interface Necesidad {
   id: string;
   tipo: TipoNecesidad;
+  modo?: ModoNecesidad;
   categoria: CategoriaNecesidad;
   titulo: string;
   descripcion: string;

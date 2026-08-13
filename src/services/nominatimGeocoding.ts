@@ -72,3 +72,34 @@ export function formatNominatimTitle(rawAddress: string): string {
   if (parts.length <= 3) return rawAddress.trim();
   return parts.slice(0, 3).join(",").trim();
 }
+
+/**
+ * Realiza geocodificación inversa (coordenadas lat, lon -> dirección legible)
+ * utilizando el endpoint de OpenStreetMap Nominatim API.
+ */
+export async function obtenerDireccionDesdeCoordenadas(
+  lat: number,
+  lon: number
+): Promise<string | null> {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`,
+      {
+        headers: {
+          "User-Agent": "HuManoColombia/1.0 (app de ayuda humanitaria Colombia)",
+          "Accept-Language": "es",
+        },
+      }
+    );
+
+    if (!response.ok) throw new Error("Error obteniendo dirección");
+    const data = await response.json();
+    if (data && data.display_name) {
+      return formatNominatimTitle(data.display_name);
+    }
+    return null;
+  } catch (error) {
+    console.log("Error en reverse geocoding Nominatim:", error);
+    return null;
+  }
+}
