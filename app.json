@@ -1,27 +1,46 @@
 {
   "expo": {
     "name": "Hu-Manos Colombia",
-    "slug": "hu-mano-colombia",
+    "slug": "hu-manos-colombia",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "hu-mano-colombia",
+    "icon": "./assets/icon_1024.png",
+    "scheme": "humanocolombia",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "co.humano.colombia"
     },
     "android": {
-      "package": "co.humano.colombia"
+      "package": "co.humano.colombia",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive_icon_1024.png",
+        "backgroundColor": "#FFFFFF"
+      }
     },
     "web": {
       "bundler": "metro",
       "output": "single"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Hu-Manos usa tu ubicación para autocompletar dónde se busca o se vio a la persona."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "d8c7c3f6-fea9-49d9-b76d-05cb605627af"
+      }
     }
   }
 }

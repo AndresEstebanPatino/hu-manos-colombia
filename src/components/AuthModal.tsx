@@ -10,8 +10,13 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useAuth } from "../context/AuthContext";
 import { COLORS } from "../constants/theme";
+
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useWindowDimensions } from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 
 interface AuthModalProps {
   visible: boolean;
@@ -19,19 +24,31 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
-  const { user, signInWithGoogle, signInWithPhone, signInQuick, signOut, isLoading } = useAuth();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { user, signInWithGoogle, signInWithPhone, signInQuick, signInWithEmail, signOut, isLoading } = useAuth();
 
-  const [mode, setMode] = useState<"OPTIONS" | "PHONE" | "QUICK">("OPTIONS");
+  const [mode, setMode] = useState<"OPTIONS" | "PHONE" | "QUICK" | "EMAIL">("OPTIONS");
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   const handleGoogleSignIn = async () => {
     try {
       await signInWithGoogle();
       Alert.alert("¡Sesión Iniciada!", "Te has identificado con tu cuenta de Google.");
       onClose();
-    } catch (err) {
-      Alert.alert("Error", "No se pudo iniciar sesión con Google.");
+    } catch (err: any) {
+      const msg = err?.message || "";
+      if (msg.includes("cancelado") || msg.includes("cancel")) {
+        // El usuario canceló intencionalmente — no mostrar error alarmante
+        return;
+      }
+      Alert.alert(
+        "⚠️ No se pudo iniciar sesión",
+        msg || "Ocurrió un error al conectar con Google. Verifica tu conexión e intenta de nuevo."
+      );
     }
   };
 
@@ -63,19 +80,40 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
     }
   };
 
+  const handleEmailSubmit = async () => {
+    if (!email.trim() || !password.trim()) {
+      Alert.alert("Requerido", "Ingresa tu correo y contraseña.");
+      return;
+    }
+    try {
+      await signInWithEmail(email.trim(), password);
+      Alert.alert("¡Sesión iniciada!", "Bienvenido/a.");
+      onClose();
+    } catch (err) {
+      Alert.alert("Error", "Correo o contraseña inválidos.");
+    }
+  };
+
   return (
     <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.card}>
+      <KeyboardAvoidingView
+        style={styles.overlay}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <View style={[styles.card, { paddingBottom: Math.max(insets.bottom + 20, 24) }]}>
           {/* Header */}
           <View style={styles.headerRow}>
             <View style={styles.titleWithIcon}>
-              <Ionicons name="person-circle-sharp" size={24} color={COLORS.primary} />
-              <Text style={styles.title}>Perfil e Identificación</Text>
+              <Ionicons name="shield-checkmark" size={24} color={COLORS.primary} />
+              <Text style={styles.title}>
+                {user ? "Perfil de Usuario" : "Bienvenido a Hu-Manos Colombia"}
+              </Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={22} color={COLORS.text} />
-            </TouchableOpacity>
+            {user ? (
+              <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+                <Ionicons name="close" size={22} color={COLORS.text} />
+              </TouchableOpacity>
+            ) : null}
           </View>
 
           {/* Si ya tiene sesión activa */}
@@ -90,9 +128,31 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
                 {user.metodo_auth === "GOOGLE"
                   ? "🌐 Cuenta de Google Verificada"
                   : user.metodo_auth === "TELEFONO"
-                  ? `📱 Celular: ${user.telefono}`
-                  : "⚡ Perfil Rápido Activo"}
+                    ? `📱 Celular: ${user.telefono}`
+                    : "⚡ Perfil Rápido Activo"}
               </Text>
+
+              <TouchableOpacity
+                style={styles.myAlertsButton}
+                onPress={() => {
+                  onClose();
+                  router.push("/my-needs" as any);
+                }}
+              >
+                <Ionicons name="megaphone" size={18} color="#FFFFFF" />
+                <Text style={styles.myAlertsButtonText}>Mis Alertas Publicadas ➔</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.aboutButton}
+                onPress={() => {
+                  onClose();
+                  router.push("/acerca-de" as any);
+                }}
+              >
+                <Ionicons name="information-circle" size={18} color={COLORS.primary} />
+                <Text style={styles.aboutButtonText}>Sobre la App / Políticas ℹ️</Text>
+              </TouchableOpacity>
 
               <TouchableOpacity style={styles.signOutButton} onPress={signOut}>
                 <Ionicons name="log-out-outline" size={18} color={COLORS.primary} />
@@ -126,6 +186,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
                   >
                     <Ionicons name="phone-portrait-sharp" size={20} color={COLORS.whatsappGreen} />
                     <Text style={styles.phoneText}>Ingresar con Celular / WhatsApp</Text>
+                  </TouchableOpacity>
+
+                  {/* Email / Contraseña (coordinador y roles) */}
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    style={styles.emailButton}
+                    onPress={() => setMode("EMAIL")}
+                  >
+                    <Ionicons name="mail" size={20} color={COLORS.primary} />
+                    <Text style={styles.emailText}>Ingresar con Correo (Coordinación)</Text>
                   </TouchableOpacity>
 
                   {/* Continuar como Invitado */}
@@ -208,10 +278,45 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
                   </TouchableOpacity>
                 </View>
               )}
+
+              {/* Formulario Email / Contraseña */}
+              {mode === "EMAIL" && (
+                <View style={styles.formContainer}>
+                  <TouchableOpacity onPress={() => setMode("OPTIONS")} style={styles.backLink}>
+                    <Ionicons name="arrow-back" size={16} color={COLORS.primary} />
+                    <Text style={styles.backText}>Volver a opciones</Text>
+                  </TouchableOpacity>
+
+                  <Text style={styles.inputLabel}>Correo *</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="coordinador@dominio.com"
+                    placeholderTextColor="#94A3B8"
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                  />
+
+                  <Text style={styles.inputLabel}>Contraseña *</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Tu contraseña"
+                    placeholderTextColor="#94A3B8"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                  />
+
+                  <TouchableOpacity style={styles.submitBtn} onPress={handleEmailSubmit}>
+                    <Text style={styles.submitBtnText}>Ingresar</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           )}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -279,10 +384,42 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     marginTop: 4,
   },
+  myAlertsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 16,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+  myAlertsButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  aboutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 10,
+    backgroundColor: "#F1F5F9",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  aboutButtonText: {
+    color: COLORS.text,
+    fontSize: 13.5,
+    fontWeight: "700",
+  },
   signOutButton: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 20,
+    marginTop: 12,
     backgroundColor: COLORS.primaryLight,
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -358,6 +495,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     color: "#475569",
+  },
+  emailButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.primaryLight,
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+    paddingVertical: 12,
+    borderRadius: 14,
+    gap: 10,
+  },
+  emailText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: COLORS.primary,
   },
   formContainer: {
     gap: 10,

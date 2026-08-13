@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -8,16 +8,23 @@ import {
   Share,
   Alert,
   Platform,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Necesidad } from "../types/need";
-import { CategoryBadge, TypeBadge } from "./StatusBadge";
+import { CategoryBadge, TypeBadge, ModoBadge } from "./StatusBadge";
 import { ProgressBar } from "./ProgressBar";
-import { getTimeAgo } from "../services/storage";
+import { getTimeAgo, voteTrustNeed } from "../services/storage";
 import { COLORS } from "../constants/theme";
 import { useNotifications } from "../context/NotificationContext";
 import { useAuth } from "../context/AuthContext";
-import { notifyNeedCompletedToSupporters } from "../services/pushNotifications";
+import { ReliabilityBadge } from "./ReliabilityBadge";
+import { ReportModal } from "./ReportModal";
+import {
+  obtenerPerfilConfiabilidad,
+  registrarContribucionAtomic,
+  UserReliabilityProfile,
+} from "../services/reliabilityService";
 
 interface NeedCardProps {
   need: Necesidad;
@@ -37,10 +44,22 @@ export const NeedCard: React.FC<NeedCardProps> = ({
   const { showToast } = useNotifications();
   const { user } = useAuth();
 
-  // El evento solo se cierra si completado === true (marcado manualmente por el creador)
+  const [votosCount, setVotosCount] = useState<number>(need.votos_confianza || 0);
+  const [votosIds, setVotosIds] = useState<string[]>(need.voto_confianza_ids || []);
+  const [spamCount, setSpamCount] = useState<number>(need.reportes_spam || 0);
+  const [creatorProfile, setCreatorProfile] = React.useState<UserReliabilityProfile | null>(null);
+  const [showReportModal, setShowReportModal] = useState(false);
+
+  React.useEffect(() => {
+    if (need.creador_id) {
+      obtenerPerfilConfiabilidad(need.creador_id).then(setCreatorProfile);
+    }
+  }, [need.creador_id]);
+
   const isClosedManually = Boolean(need.completado);
   const isMetaReached = need.progreso_actual >= need.meta_cantidad;
   const hasSupported = Boolean(user?.id && need.apoyantes_ids?.includes(user.id));
+  const hasVotedTrust = Boolean(user?.id && votosIds.includes(user.id));
 
   const hasValidPhone = Boolean(
     need.contacto_whatsapp &&
@@ -48,7 +67,6 @@ export const NeedCard: React.FC<NeedCardProps> = ({
     need.contacto_whatsapp.replace(/\D/g, "").length >= 7
   );
 
-  // Enlace web / app directo al detalle de este evento específico
   const eventShareUrl = `https://hu-manos-colombia.app/detail/${need.id}`;
 
   const eventShareMessage = 
@@ -60,7 +78,6 @@ export const NeedCard: React.FC<NeedCardProps> = ({
     `\n👉 *Ver evento y sumarte aquí:* ${eventShareUrl}\n\n` +
     `*Hu-Manos Colombia - Una mano para quien lo necesita*`;
 
-  // Contacto por WhatsApp al Creador o Compartir Evento en WhatsApp
   const handleOpenWhatsApp = async () => {
     if (hasValidPhone) {
       const rawNumber = need.contacto_whatsapp.replace(/\D/g, "");
@@ -81,7 +98,6 @@ export const NeedCard: React.FC<NeedCardProps> = ({
         });
       }
     } else {
-      // Si el número era opcional, abrir WhatsApp para compartir el enlace del evento con tus contactos
       const broadcastUrl = `https://wa.me/?text=${encodeURIComponent(eventShareMessage)}`;
       Linking.openURL(broadcastUrl).catch(() => {
         handleShare();
@@ -89,7 +105,6 @@ export const NeedCard: React.FC<NeedCardProps> = ({
     }
   };
 
-  // Compartir nativo (WhatsApp, Telegram, Redes) con enlace del evento
   const handleShare = async () => {
     try {
       if (Platform.OS === "web") {
@@ -107,8 +122,45 @@ export const NeedCard: React.FC<NeedCardProps> = ({
     }
   };
 
+  // Voto de confianza de la comunidad ("Confirmar caso real 👍")
+  const handleVoteTrust = async () => {
+    const userId = user?.id || `guest-${Date.now()}`;
+    const res = await voteTrustNeed(need.id, userId);
+    if (res) {
+      setVotosCount(res.votos_confianza || 0);
+      setVotosIds(res.voto_confianza_ids || []);
+      showToast(
+        hasVotedTrust ? "👍 Voto removido" : "🛡️ Caso Respaldado",
+        hasVotedTrust ? "Has retirado tu confirmación de veracidad." : "Gracias por confirmar que este caso es real.",
+        "success"
+      );
+    }
+  };
+
+  // Apertura del flujo formal de reporte
+  const handleReportScam = () => {
+    // Validar requerimiento obligatorio de usuario autenticado o anónimo con ID de Auth
+    if (!user?.id) {
+      Alert.alert(
+        "Inicio de Sesión Requerido",
+        "Debes tener una sesión activa para poder reportar una solicitud por posible estafa o información falsa.",
+        [{ text: "Entendido", style: "default" }]
+      );
+      return;
+    }
+
+    setShowReportModal(true);
+  };
+
   const handlePressIncrement = () => {
     onIncrement(need.id, user?.id);
+    // Registrar la contribución atómica en Supabase si el usuario está autenticado y se suma por primera vez
+    const userId = user?.id;
+    if (userId && !hasSupported && need.creador_id) {
+      registrarContribucionAtomic(need.id, userId, 1).catch((err) =>
+        console.log("Contribución info:", err)
+      );
+    }
   };
 
   const handleConfirmDelete = () => {
@@ -137,19 +189,12 @@ export const NeedCard: React.FC<NeedCardProps> = ({
   };
 
   return (
-    <View style={[styles.card, isClosedManually && styles.completedCard]}>
-      {/* Dynamic Colored Accent Line at the Top */}
-      <View
-        style={[
-          styles.accentBar,
-          { backgroundColor: isClosedManually ? COLORS.secondary : isMetaReached ? COLORS.flagYellow : COLORS.primary },
-        ]}
-      />
-
+    <View style={[styles.card, need.modo === "OFERTA" && styles.ofertaCard, isClosedManually && styles.completedCard]}>
       <View style={styles.cardContent}>
-        {/* Header Row: Category Badge + Type Badge + Time Ago */}
+        {/* Header Row: Modo Badge + Category Badge + Type Badge + Time Ago */}
         <View style={styles.topMetaRow}>
           <View style={styles.badgeGroup}>
+            <ModoBadge modo={need.modo} />
             <CategoryBadge category={need.categoria} />
             <TypeBadge type={need.tipo} />
           </View>
@@ -167,6 +212,36 @@ export const NeedCard: React.FC<NeedCardProps> = ({
           </View>
         </View>
 
+        {/* Sistema de Confiabilidad: Insignia de Verificación + Voto Vecinal */}
+        <View style={styles.trustRow}>
+          <ReliabilityBadge
+            level={creatorProfile?.reliability_level || (need.creador_verificado ? "confiable" : "nuevo")}
+            averageRating={creatorProfile?.average_rating || 0}
+            totalRatings={creatorProfile?.total_ratings || 0}
+          />
+
+          <TouchableOpacity
+            activeOpacity={0.75}
+            style={[styles.trustVoteBtn, hasVotedTrust && styles.trustVoteBtnActive]}
+            onPress={handleVoteTrust}
+          >
+            <Ionicons name={hasVotedTrust ? "thumbs-up" : "thumbs-up-outline"} size={13} color={hasVotedTrust ? COLORS.primary : "#64748B"} />
+            <Text style={[styles.trustVoteText, hasVotedTrust && styles.trustVoteTextActive]}>
+              {votosCount > 0 ? `👍 ${votosCount} Caso verificado por vecinos` : "Confirmar caso real"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Advertencia si la solicitud tiene 3 o más reportes de la comunidad */}
+        {spamCount >= 3 && (
+          <View style={styles.scamWarningBanner}>
+            <Ionicons name="warning-sharp" size={15} color="#DC2626" />
+            <Text style={styles.scamWarningText}>
+              ⚠️ ADVERTENCIA ANTI-ESTAFAS: Esta solicitud tiene {spamCount} reporte(s) por sospecha. NUNCA transfieras dinero a cuentas personales.
+            </Text>
+          </View>
+        )}
+
         {/* Title */}
         <TouchableOpacity
           activeOpacity={0.8}
@@ -175,7 +250,22 @@ export const NeedCard: React.FC<NeedCardProps> = ({
           <Text style={[styles.title, isClosedManually && styles.completedTitleText]}>
             {need.titulo}
           </Text>
+          {/* Medida / Unidad como metadata secundaria */}
+          {need.unidad_medida ? (
+            <Text style={styles.unitMetaText}>
+              {need.meta_cantidad} {need.unidad_medida}
+            </Text>
+          ) : null}
         </TouchableOpacity>
+
+        {/* Imagen opcional de la necesidad */}
+        {need.imagen_url ? (
+          <Image
+            source={{ uri: need.imagen_url }}
+            style={styles.needImage}
+            resizeMode="cover"
+          />
+        ) : null}
 
         {/* Location Row */}
         <View style={styles.locationRow}>
@@ -205,14 +295,14 @@ export const NeedCard: React.FC<NeedCardProps> = ({
           <View style={styles.metaReachedBanner}>
             <Ionicons name="checkmark-done-circle" size={16} color={COLORS.secondary} />
             <Text style={styles.metaReachedText}>
-              ¡Personas cubiertas! Si alguien cancela, el evento permanece abierto.
+              ¡Meta de {need.unidad_medida || "ayudas"} alcanzada! Si alguien cancela, la solicitud permanece visible.
             </Text>
           </View>
         )}
 
         {/* Main Action Buttons */}
         <View style={styles.actionsContainer}>
-          {/* Primary Action Button: Ofrecer Ayuda / Me Sumo / Ya Te Sumaste */}
+          {/* Primary Action Button: Ofrecer Ayuda / Me Sumo */}
           {!isClosedManually ? (
             <TouchableOpacity
               activeOpacity={0.85}
@@ -235,7 +325,7 @@ export const NeedCard: React.FC<NeedCardProps> = ({
             </View>
           )}
 
-          {/* Quick Contact & Share Buttons */}
+          {/* Quick Contact, Share & Report Buttons */}
           <View style={styles.secondaryActionsRow}>
             {/* WhatsApp Button */}
             <TouchableOpacity
@@ -253,36 +343,53 @@ export const NeedCard: React.FC<NeedCardProps> = ({
               style={styles.shareButton}
               onPress={handleShare}
             >
-              <Ionicons name="share-social-outline" size={18} color={COLORS.text} />
-              <Text style={styles.shareButtonText}>Compartir</Text>
+              <Ionicons name="share-social" size={18} color={COLORS.text} />
+              <Text style={styles.shareButtonText}>Compartir Evento</Text>
             </TouchableOpacity>
 
-            {/* Toggle Status (Cerrar / Reactivar solicitud manualmente) */}
+            {/* Report Scam Button */}
             <TouchableOpacity
-              activeOpacity={0.7}
-              style={styles.toggleStatusButton}
-              onPress={() => {
-                onToggleComplete(need.id, !isClosedManually);
-                if (!isClosedManually) {
-                  showToast("🔒 Solicitud Cerrada", `"${need.titulo}" fue movida a Cubiertas.`, "success");
-                  // Disparar Notificación Push a los voluntarios/apoyantes
-                  if (need.apoyantes_ids && need.apoyantes_ids.length > 0) {
-                    notifyNeedCompletedToSupporters(need.titulo, need.id, need.apoyantes_ids);
-                  }
-                } else {
-                  showToast("🚨 Solicitud Reactivada", `"${need.titulo}" fue reabierta.`, "info");
-                }
-              }}
+              activeOpacity={0.8}
+              style={styles.reportButton}
+              onPress={handleReportScam}
             >
-              <Ionicons
-                name={isClosedManually ? "refresh-outline" : "checkmark-circle-outline"}
-                size={18}
-                color={isClosedManually ? COLORS.primary : COLORS.secondary}
-              />
+              <Ionicons name="flag-outline" size={16} color="#DC2626" />
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Botón de Cierre Manual solo para el creador del evento */}
+        {user?.id && need.creador_id === user.id && (
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={[styles.creatorCloseBtn, isClosedManually && styles.creatorOpenBtn]}
+            onPress={() => onToggleComplete(need.id, !isClosedManually)}
+          >
+            <Ionicons
+              name={isClosedManually ? "refresh-circle-outline" : "checkmark-circle-outline"}
+              size={18}
+              color={isClosedManually ? COLORS.primary : COLORS.secondary}
+            />
+            <Text style={[styles.creatorCloseText, isClosedManually && styles.creatorOpenText]}>
+              {isClosedManually ? "Reabrir Evento para la Comunidad" : "Marcar Necesidad como Cubierta / Cerrada"}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
+
+      {/* Modal formal de reportes */}
+      <ReportModal
+        visible={showReportModal}
+        necesidadId={need.id}
+        necesidadTitulo={need.titulo}
+        userId={user?.id || ""}
+        onClose={() => setShowReportModal(false)}
+        onSuccess={(newCount) => {
+          if (typeof newCount === "number") {
+            setSpamCount(newCount);
+          }
+        }}
+      />
     </View>
   );
 };
@@ -290,28 +397,33 @@ export const NeedCard: React.FC<NeedCardProps> = ({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.card,
-    borderRadius: 16,
-    marginHorizontal: 16,
-    marginVertical: 8,
+    borderRadius: 20,
+    marginBottom: 16,
     overflow: "hidden",
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: COLORS.border,
     shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowRadius: 10,
+    elevation: 4,
   },
   completedCard: {
     backgroundColor: "#F8FAFC",
-    borderColor: "#CBD5E1",
+    borderColor: "#E2E8F0",
+    opacity: 0.92,
+  },
+  ofertaCard: {
+    borderLeftWidth: 5,
+    borderLeftColor: "#059669",
+    borderColor: "#A7F3D0",
   },
   accentBar: {
     height: 4,
     width: "100%",
   },
   cardContent: {
-    padding: 14,
+    padding: 16,
   },
   topMetaRow: {
     flexDirection: "row",
@@ -323,122 +435,210 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    flexWrap: "wrap",
-    flex: 1,
   },
   topRightActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
   },
   timeAgoText: {
-    fontSize: 11,
+    fontSize: 12,
     color: COLORS.textMuted,
-    fontWeight: "600",
+    fontWeight: "500",
   },
   deleteIconButton: {
     padding: 4,
   },
-  title: {
-    fontSize: 16,
+  trustRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginVertical: 6,
+  },
+  verifiedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F0FDF4",
+    borderColor: "#BBF7D0",
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    gap: 4,
+  },
+  verifiedText: {
+    fontSize: 11,
     fontWeight: "700",
+    color: "#16A34A",
+  },
+  unverifiedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FEF3C7",
+    borderColor: "#FDE68A",
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    gap: 4,
+  },
+  unverifiedText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#D97706",
+  },
+  trustVoteBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F1F5F9",
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    gap: 4,
+  },
+  trustVoteBtnActive: {
+    backgroundColor: COLORS.primaryLight,
+  },
+  trustVoteText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#475569",
+  },
+  trustVoteTextActive: {
+    color: COLORS.primary,
+    fontWeight: "700",
+  },
+  scamWarningBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1,
+    borderColor: "#FCA5A5",
+    borderRadius: 12,
+    padding: 10,
+    marginVertical: 6,
+    gap: 8,
+  },
+  scamWarningText: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#991B1B",
+    lineHeight: 15,
+  },
+  title: {
+    fontSize: 17,
+    fontWeight: "800",
     color: COLORS.text,
-    lineHeight: 22,
+    lineHeight: 23,
     marginBottom: 6,
   },
   completedTitleText: {
-    color: "#475569",
+    color: "#64748B",
     textDecorationLine: "line-through",
+  },
+  unitMetaText: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    fontWeight: "500",
+    marginTop: -4,
+    marginBottom: 4,
+  },
+  needImage: {
+    width: "100%",
+    height: 160,
+    borderRadius: 10,
+    marginTop: 6,
+    marginBottom: 4,
   },
   locationRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 6,
+    marginBottom: 8,
     gap: 4,
   },
   locationText: {
     fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.primaryDark,
+    color: COLORS.primary,
+    fontWeight: "700",
     flex: 1,
   },
   descriptionText: {
     fontSize: 13,
     color: COLORS.textMuted,
     lineHeight: 18,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   metaReachedBanner: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: COLORS.secondaryLight,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    marginTop: 8,
     gap: 6,
   },
   metaReachedText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "700",
     color: COLORS.secondary,
     flex: 1,
   },
   actionsContainer: {
-    marginTop: 8,
-    gap: 8,
+    marginTop: 14,
+    gap: 10,
   },
   sumoButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: COLORS.primary,
-    paddingVertical: 10,
-    borderRadius: 10,
-    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    gap: 8,
     shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
-    shadowRadius: 3,
+    shadowRadius: 5,
     elevation: 3,
   },
   supportedButton: {
     backgroundColor: COLORS.secondary,
-    shadowColor: COLORS.secondary,
   },
   sumoButtonText: {
     color: "#FFFFFF",
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "800",
   },
   completedBanner: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: COLORS.secondaryLight,
-    paddingVertical: 8,
-    borderRadius: 10,
-    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    gap: 8,
   },
   completedBannerText: {
     color: COLORS.secondary,
-    fontSize: 13,
-    fontWeight: "700",
+    fontSize: 14,
+    fontWeight: "800",
   },
   secondaryActionsRow: {
     flexDirection: "row",
-    alignItems: "center",
     gap: 8,
   },
   whatsappButton: {
-    flex: 2,
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: COLORS.whatsappGreen,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 10,
+    paddingVertical: 10,
+    borderRadius: 12,
     gap: 6,
   },
   whatsappButtonText: {
@@ -447,31 +647,53 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   shareButton: {
-    flex: 2,
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#F1F5F9",
     borderWidth: 1,
     borderColor: COLORS.border,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 10,
+    paddingVertical: 10,
+    borderRadius: 12,
     gap: 6,
   },
   shareButtonText: {
     color: COLORS.text,
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: "700",
   },
-  toggleStatusButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: "#F1F5F9",
+  reportButton: {
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "#FEF2F2",
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: "#FCA5A5",
+    paddingHorizontal: 12,
+    borderRadius: 12,
+  },
+  creatorCloseBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.secondaryLight,
+    borderWidth: 1.5,
+    borderColor: COLORS.secondary,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginTop: 10,
+    gap: 6,
+  },
+  creatorCloseText: {
+    color: COLORS.secondary,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  creatorOpenBtn: {
+    backgroundColor: COLORS.primaryLight,
+    borderColor: COLORS.primary,
+  },
+  creatorOpenText: {
+    color: COLORS.primary,
   },
 });

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { View, Text, StyleSheet, Animated, TouchableOpacity, Platform } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "../constants/theme";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { useAuth } from "./AuthContext";
 
@@ -20,6 +21,8 @@ interface NotificationContextProps {
   showToast: (title: string, message: string, type?: ToastType) => void;
   onlineCount: number;
   activityLog: CommunityActivity[];
+  unreadCount: number;
+  markNotificationsAsRead: () => void;
   fetchNotifications: () => Promise<void>;
 }
 
@@ -27,6 +30,8 @@ const NotificationContext = createContext<NotificationContextProps>({
   showToast: () => {},
   onlineCount: 1,
   activityLog: [],
+  unreadCount: 0,
+  markNotificationsAsRead: () => {},
   fetchNotifications: async () => {},
 });
 
@@ -36,10 +41,16 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const { user } = useAuth();
   const [currentToast, setCurrentToast] = useState<CommunityActivity | null>(null);
   const [activityLog, setActivityLog] = useState<CommunityActivity[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
   const [onlineCount, setOnlineCount] = useState<number>(2);
 
   const fadeAnim = useState(new Animated.Value(0))[0];
   const slideAnim = useState(new Animated.Value(-100))[0];
+
+  const markNotificationsAsRead = useCallback(() => {
+    setUnreadCount(0);
+    AsyncStorage.setItem("@humano_colombia_last_read_notif", Date.now().toString()).catch(() => {});
+  }, []);
 
   const showToast = (title: string, message: string, type: ToastType = "info") => {
     const newActivity: CommunityActivity = {
@@ -50,6 +61,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
 
+    setActivityLog((prev) => [newActivity, ...prev.filter((a) => a.id !== newActivity.id)]);
     setCurrentToast(newActivity);
 
     // Animación de entrada
@@ -85,40 +97,83 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }, 4500);
   };
 
-  // Cargar notificaciones globales de la tabla `notificaciones` en Supabase
+  // Cargar notificaciones globales de la tabla `notificaciones` o de `necesidades`
   const fetchNotifications = useCallback(async () => {
-    if (!isSupabaseConfigured()) return;
+    if (!isSupabaseConfigured()) {
+      return;
+    }
+
     try {
+      // 1. Intentar consultar la tabla `notificaciones`
       const { data, error } = await supabase
         .from("notificaciones")
         .select("*")
         .order("creado_en", { ascending: false })
         .limit(25);
 
-      if (!error && data) {
+      if (!error && data && data.length > 0) {
         const mapped: CommunityActivity[] = data.map((item: any) => ({
-          id: item.id,
-          title: item.titulo,
-          message: item.mensaje,
+          id: item.id || `notif-${Math.random()}`,
+          title: item.titulo || "🚨 Nueva solicitud",
+          message: item.mensaje || "Publicada en Colombia",
           type: item.tipo === "NUEVO_EVENTO" ? "alert" : "info",
-          timestamp: new Date(item.creado_en).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          timestamp: item.creado_en
+            ? new Date(item.creado_en).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            : "Reciente",
           creado_por: item.creado_por,
         }));
         setActivityLog(mapped);
+
+        // Calcular notificaciones no leídas basándose en el último visto guardado
+        try {
+          const lastRead = await AsyncStorage.getItem("@humano_colombia_last_read_notif");
+          const lastReadTime = lastRead ? parseInt(lastRead, 10) : 0;
+
+          const unread = data.filter((item: any) => {
+            const itemTime = new Date(item.creado_en || Date.now()).getTime();
+            return itemTime > lastReadTime;
+          }).length;
+
+          setUnreadCount(unread);
+        } catch (e) {
+          setUnreadCount(data.length);
+        }
+        return;
+      }
+
+      // 2. Si `notificaciones` está vacía aún, autogenerar desde `necesidades`
+      const { data: needsData } = await supabase
+        .from("necesidades")
+        .select("id, titulo, ubicacion, creado_en, creador_id")
+        .order("creado_en", { ascending: false })
+        .limit(15);
+
+      if (needsData && needsData.length > 0) {
+        const mappedFromNeeds: CommunityActivity[] = needsData.map((item: any) => ({
+          id: `need-notif-${item.id}`,
+          title: "🚨 Solicitud activa en la comunidad",
+          message: `${item.titulo} en ${item.ubicacion}`,
+          type: "alert",
+          timestamp: item.creado_en
+            ? new Date(item.creado_en).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            : "Reciente",
+          creado_por: item.creador_id,
+        }));
+        setActivityLog(mappedFromNeeds);
       }
     } catch (err) {
       console.log("Consulta de notificaciones globales en espera.");
     }
   }, []);
 
-  // Supabase Realtime para la tabla `notificaciones` y Presencia de usuarios en línea
+  // Supabase Realtime para las tablas `notificaciones` y `necesidades` + Presencia
   useEffect(() => {
     fetchNotifications();
 
     if (isSupabaseConfigured()) {
       try {
-        // 1. Presencia de Usuarios en Línea
-        const presenceChannel = supabase.channel("online-users", {
+        // Presencia de Usuarios en Línea
+        const presenceChannel = supabase.channel("online-users-realtime", {
           config: {
             presence: {
               key: `user-${user?.id || Math.random().toString(36).substring(7)}`,
@@ -138,29 +193,57 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             }
           });
 
-        // 2. Escuchador de Supabase Realtime a la tabla `notificaciones`
+        // Suscripción Realtime en Vivo a las tablas `notificaciones` y `necesidades`
         const notifChannel = supabase
-          .channel("notificaciones-realtime")
+          .channel("notificaciones-live-channel")
           .on(
             "postgres_changes",
-            { event: "INSERT", schema: "public", table: "notificaciones" },
+            { event: "*", schema: "public", table: "notificaciones" },
             (payload) => {
-              const newNotif = payload.new as any;
-              const newActivity: CommunityActivity = {
-                id: newNotif.id,
-                title: newNotif.titulo,
-                message: newNotif.mensaje,
-                type: newNotif.tipo === "NUEVO_EVENTO" ? "alert" : "info",
-                timestamp: new Date(newNotif.creado_en || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-                creado_por: newNotif.creado_por,
-              };
+              if (payload.eventType === "INSERT") {
+                const newNotif = payload.new as any;
+                const newActivity: CommunityActivity = {
+                  id: newNotif.id || `notif-${Date.now()}`,
+                  title: newNotif.titulo || "🚨 Nueva solicitud",
+                  message: newNotif.mensaje || "Publicada en la comunidad",
+                  type: newNotif.tipo === "NUEVO_EVENTO" ? "alert" : "info",
+                  timestamp: new Date(newNotif.creado_en || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                  creado_por: newNotif.creado_por,
+                };
 
-              // Actualizar el estado global de la campana 🔔 para TODOS los usuarios
-              setActivityLog((prev) => [newActivity, ...prev.filter((item) => item.id !== newNotif.id)]);
+                setActivityLog((prev) => [newActivity, ...prev.filter((item) => item.id !== newActivity.id)]);
 
-              // Mostrar el banner flotante a los DEMÁS usuarios
-              if (!user?.id || newNotif.creado_por !== user.id) {
-                showToast(newNotif.titulo, newNotif.mensaje, "alert");
+                // Incrementar contador de no leídas (Badge de la campana)
+                setUnreadCount((prev) => prev + 1);
+
+                // Banner flotante para los demás usuarios
+                if (!user?.id || newNotif.creado_por !== user.id) {
+                  showToast(newActivity.title, newActivity.message, "alert");
+                }
+              }
+            }
+          )
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "necesidades" },
+            (payload) => {
+              if (payload.eventType === "INSERT") {
+                const newNeed = payload.new as any;
+                const newActivity: CommunityActivity = {
+                  id: `need-notif-${newNeed.id}`,
+                  title: "🚨 Nueva solicitud creada",
+                  message: `${newNeed.titulo} en ${newNeed.ubicacion}`,
+                  type: "alert",
+                  timestamp: new Date(newNeed.creado_en || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                  creado_por: newNeed.creador_id,
+                };
+
+                setActivityLog((prev) => [newActivity, ...prev.filter((item) => item.id !== newActivity.id)]);
+                setUnreadCount((prev) => prev + 1);
+
+                if (!user?.id || newNeed.creador_id !== user.id) {
+                  showToast(newActivity.title, newActivity.message, "alert");
+                }
               }
             }
           )
@@ -195,7 +278,16 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   return (
-    <NotificationContext.Provider value={{ showToast, onlineCount, activityLog, fetchNotifications }}>
+    <NotificationContext.Provider
+      value={{
+        showToast,
+        onlineCount,
+        activityLog,
+        unreadCount,
+        markNotificationsAsRead,
+        fetchNotifications,
+      }}
+    >
       {children}
 
       {/* Floating In-App Toast Banner */}

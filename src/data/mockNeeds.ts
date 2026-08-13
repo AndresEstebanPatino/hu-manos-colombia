@@ -4,6 +4,7 @@ export const INITIAL_MOCK_NEEDS: Necesidad[] = [
   {
     id: "need-001",
     tipo: "RECURSO",
+    modo: "SOLICITUD",
     categoria: "BEBES_LACTANCIA",
     titulo: "Urgente: Nodriza / Leche materna para bebé de 7 meses",
     descripcion: "Bebé de 7 meses rescatado en albergue temporal necesita fórmula láctea etapa 2 o nodriza voluntaria. La madre se encuentra incapacitada temporalmente.",
@@ -13,11 +14,14 @@ export const INITIAL_MOCK_NEEDS: Necesidad[] = [
     progreso_actual: 0,
     completado: false,
     creado_en: new Date(Date.now() - 1000 * 60 * 25).toISOString(), // Hace 25 min
-    unidad_medida: "lactante / kit"
+    unidad_medida: "lactante / kit",
+    latitud: 4.8133,
+    longitud: -75.6961,
   },
   {
     id: "need-002",
     tipo: "VOLUNTARIO",
+    modo: "SOLICITUD",
     categoria: "MANO_DE_OBRA",
     titulo: "Se solicitan 10 voluntarios para mover escombros y limpiar vía",
     descripcion: "Por deslizamiento de tierra se requiere apoyo con palas, carretillas y botas para despejar la vía principal de acceso a la vereda.",
@@ -27,7 +31,9 @@ export const INITIAL_MOCK_NEEDS: Necesidad[] = [
     progreso_actual: 4,
     completado: false,
     creado_en: new Date(Date.now() - 1000 * 60 * 50).toISOString(), // Hace 50 min
-    unidad_medida: "voluntarios"
+    unidad_medida: "voluntarios",
+    latitud: 5.0689,
+    longitud: -75.5174,
   },
   {
     id: "need-003",
@@ -41,7 +47,9 @@ export const INITIAL_MOCK_NEEDS: Necesidad[] = [
     progreso_actual: 8,
     completado: false,
     creado_en: new Date(Date.now() - 1000 * 60 * 120).toISOString(), // Hace 2 horas
-    unidad_medida: "kits de descanso"
+    unidad_medida: "kits de descanso",
+    latitud: 5.6947,
+    longitud: -76.6611,
   },
   {
     id: "need-004",
@@ -55,7 +63,9 @@ export const INITIAL_MOCK_NEEDS: Necesidad[] = [
     progreso_actual: 32,
     completado: false,
     creado_en: new Date(Date.now() - 1000 * 60 * 240).toISOString(), // Hace 4 horas
-    unidad_medida: "mercados / paquetes"
+    unidad_medida: "mercados / paquetes",
+    latitud: 3.4516,
+    longitud: -76.5320,
   },
   {
     id: "need-005",
@@ -69,7 +79,9 @@ export const INITIAL_MOCK_NEEDS: Necesidad[] = [
     progreso_actual: 3,
     completado: true,
     creado_en: new Date(Date.now() - 1000 * 60 * 600).toISOString(), // Hace 10 horas
-    unidad_medida: "personal médico"
+    unidad_medida: "personal médico",
+    latitud: 4.6097,
+    longitud: -74.0817,
   },
   {
     id: "need-006",
@@ -83,6 +95,8 @@ export const INITIAL_MOCK_NEEDS: Necesidad[] = [
     progreso_actual: 8,
     completado: true,
     creado_en: new Date(Date.now() - 1000 * 60 * 1440).toISOString(), // Hace 24 horas
-    unidad_medida: "paquetes pañales"
-  }
+    unidad_medida: "paquetes pañales",
+    latitud: 1.1478,
+    longitud: -76.6491,
+  },
 ];

@@ -1,5 +1,5 @@
 import React from "react";
-import { ScrollView, TouchableOpacity, Text, StyleSheet, View } from "react-native";
+import { ScrollView, TouchableOpacity, Text, StyleSheet } from "react-native";
 import { CategoriaNecesidad } from "../types/need";
 import { ALL_CATEGORIES_FILTER, COLORS } from "../constants/theme";
 
@@ -27,18 +27,14 @@ export const CategoryChipScroll: React.FC<CategoryChipProps> = ({
             onPress={() => onSelectCategory(cat.key as CategoriaNecesidad | "TODAS")}
             style={[
               styles.chip,
-              isSelected
-                ? { backgroundColor: cat.color, borderColor: cat.color }
-                : { backgroundColor: cat.badgeBg, borderColor: "transparent" },
+              isSelected ? styles.chipSelected : styles.chipUnselected,
             ]}
           >
             <Text style={styles.emojiText}>{cat.emoji}</Text>
             <Text
               style={[
                 styles.chipLabel,
-                isSelected
-                  ? { color: "#FFFFFF", fontWeight: "700" }
-                  : { color: cat.badgeText, fontWeight: "600" },
+                isSelected ? styles.chipLabelSelected : styles.chipLabelUnselected,
               ]}
             >
               {cat.label}
@@ -52,6 +48,8 @@ export const CategoryChipScroll: React.FC<CategoryChipProps> = ({
 
 const styles = StyleSheet.create({
   scrollContainer: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 8,
     gap: 8,
@@ -59,16 +57,26 @@ const styles = StyleSheet.create({
   chip: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1.5,
     marginRight: 6,
+    flexShrink: 0,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
+  },
+  chipUnselected: {
+    backgroundColor: COLORS.neutralLight,
+    borderColor: COLORS.border,
+  },
+  chipSelected: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
   emojiText: {
     fontSize: 14,
@@ -76,5 +84,15 @@ const styles = StyleSheet.create({
   },
   chipLabel: {
     fontSize: 13,
+    flexShrink: 0,
+  },
+  chipLabelUnselected: {
+    color: COLORS.neutralDark,
+    fontWeight: "600",
+  },
+  chipLabelSelected: {
+    color: "#FFFFFF",
+    fontWeight: "700",
   },
 });
+

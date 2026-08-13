@@ -10,7 +10,7 @@ export default function NotFoundScreen() {
         <Text style={styles.title}>Esta pantalla no existe.</Text>
 
         <Link href="/(tabs)" style={styles.link}>
-          <Text style={styles.linkText}>Volver al Inicio de Hu-Mano Colombia</Text>
+          <Text style={styles.linkText}>Volver al Inicio de Hu-Manos Colombia</Text>
         </Link>
       </View>
     </>

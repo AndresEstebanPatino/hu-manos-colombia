@@ -1,0 +1,24 @@
+<svg width="1024" height="1024" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <clipPath id="heartClip">
+      <path d="M100,180 C40,120 10,80 10,55 C10,25 35,5 60,5 C80,5 95,20 100,40 C105,20 120,5 140,5 C165,5 190,25 190,55 C190,80 160,120 100,180 Z"/>
+    </clipPath>
+  </defs>
+
+  <!-- Franjas de la bandera de Colombia, proporción real 2:1:1, recortadas con la forma del corazón -->
+  <g clip-path="url(#heartClip)">
+    <rect x="0" y="0" width="200" height="92.5" fill="#FCD116"/>
+    <rect x="0" y="92.5" width="200" height="43.75" fill="#003893"/>
+    <rect x="0" y="136.25" width="200" height="63.75" fill="#CE1126"/>
+  </g>
+
+  <!-- Contorno del corazón exterior -->
+  <path d="M100,180 C40,120 10,80 10,55 C10,25 35,5 60,5 C80,5 95,20 100,40 C105,20 120,5 140,5 C165,5 190,25 190,55 C190,80 160,120 100,180 Z"
+        fill="none" stroke="#00000022" stroke-width="1"/>
+
+  <!-- Corazón blanco interior, centrado y escalado -->
+  <g transform="translate(100,97) scale(0.52) translate(-100,-97)">
+    <path d="M100,180 C40,120 10,80 10,55 C10,25 35,5 60,5 C80,5 95,20 100,40 C105,20 120,5 140,5 C165,5 190,25 190,55 C190,80 160,120 100,180 Z"
+          fill="#FFFFFF"/>
+  </g>
+</svg>

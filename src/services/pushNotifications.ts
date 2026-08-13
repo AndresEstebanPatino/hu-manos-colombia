@@ -94,15 +94,21 @@ export const registerForPushNotificationsAsync = async (userId: string): Promise
         // Guardar o actualizar en Supabase table user_push_tokens
         if (isSupabaseConfigured()) {
           try {
-            await supabase.from("user_push_tokens").upsert(
-              {
-                id: `token-${userId}`,
-                user_id: userId,
-                push_token: token,
-                updated_at: new Date().toISOString(),
-              },
-              { onConflict: "id" }
-            );
+            // Verificar si el ID es un UUID válido de Supabase Auth
+            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+            const tokenPayload: any = {
+              push_token: token,
+              updated_at: new Date().toISOString(),
+            };
+
+            if (isUuid) {
+              tokenPayload.id = userId;
+              tokenPayload.user_id = userId;
+            }
+
+            await supabase.from("user_push_tokens").upsert(tokenPayload, {
+              onConflict: isUuid ? "id" : undefined,
+            });
           } catch (spErr) {
             console.log("Info push token:", spErr);
           }
@@ -165,7 +171,7 @@ export const notifyNewNeedCreated = async (
   needTitle: string,
   location: string,
   needId: string,
-  creatorId: string
+  creatorId?: string
 ) => {
   try {
     if (!isSupabaseConfigured()) return;

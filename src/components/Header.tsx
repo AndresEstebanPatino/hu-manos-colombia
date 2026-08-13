@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import Svg, { Defs, ClipPath, Path, G, Rect } from "react-native-svg";
 import { COLORS } from "../constants/theme";
 import { useNotifications } from "../context/NotificationContext";
 import { useAuth } from "../context/AuthContext";
@@ -19,7 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
   activeCount,
   completedCount,
 }) => {
-  const { onlineCount, activityLog, fetchNotifications } = useNotifications();
+  const { onlineCount, activityLog, unreadCount, markNotificationsAsRead, fetchNotifications } = useNotifications();
   const { user } = useAuth();
   const [showLogModal, setShowLogModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -31,23 +32,44 @@ export const Header: React.FC<HeaderProps> = ({
     }
   }, [showLogModal, fetchNotifications]);
 
+  const handleOpenNotifications = () => {
+    setShowLogModal(true);
+    markNotificationsAsRead();
+    fetchNotifications();
+  };
+
   return (
     <View style={styles.container}>
-      {/* Top Banner Branding */}
+      {/* Top Banner Branding: Logo + Nombre */}
       <View style={styles.topRow}>
         <View style={styles.logoBadge}>
-          <Ionicons name="heart" size={24} color="#FFFFFF" />
+          <Svg width={28} height={28} viewBox="0 0 200 200">
+            <Defs>
+              <ClipPath id="heartClip">
+                <Path d="M100,180 C40,120 10,80 10,55 C10,25 35,5 60,5 C80,5 95,20 100,40 C105,20 120,5 140,5 C165,5 190,25 190,55 C190,80 160,120 100,180 Z" />
+              </ClipPath>
+            </Defs>
+            <G clipPath="url(#heartClip)">
+              <Rect x="0" y="0" width="200" height="92.5" fill="#FCD116" />
+              <Rect x="0" y="92.5" width="200" height="43.75" fill="#003893" />
+              <Rect x="0" y="136.25" width="200" height="63.75" fill="#CE1126" />
+            </G>
+            <Path
+              d="M100,180 C40,120 10,80 10,55 C10,25 35,5 60,5 C80,5 95,20 100,40 C105,20 120,5 140,5 C165,5 190,25 190,55 C190,80 160,120 100,180 Z"
+              fill="none"
+              stroke="#00000022"
+              strokeWidth={1}
+            />
+            <G transform="translate(100,97) scale(0.52) translate(-100,-97)">
+              <Path
+                d="M100,180 C40,120 10,80 10,55 C10,25 35,5 60,5 C80,5 95,20 100,40 C105,20 120,5 140,5 C165,5 190,25 190,55 C190,80 160,120 100,180 Z"
+                fill="#FFFFFF"
+              />
+            </G>
+          </Svg>
         </View>
         <View style={styles.titleContainer}>
-          <View style={styles.titleWithPresence}>
-            <Text style={styles.brandTitle}>Hu-Manos Colombia</Text>
-            {/* Indicador de Usuarios en Línea */}
-            <View style={styles.onlineBadge}>
-              <View style={styles.onlineDot} />
-              <Text style={styles.onlineText}>{onlineCount} en línea</Text>
-            </View>
-          </View>
-          <Text style={styles.brandSlogan}>"Una mano para quien lo necesita"</Text>
+          <Text style={styles.brandTitle}>Hu-Manos Colombia</Text>
         </View>
 
         <View style={styles.rightHeaderButtons}>
@@ -60,16 +82,16 @@ export const Header: React.FC<HeaderProps> = ({
             <Ionicons name="person-circle" size={24} color={user?.metodo_auth === "GOOGLE" ? "#EA4335" : COLORS.primary} />
           </TouchableOpacity>
 
-          {/* Botón de Campana de Notificaciones de la Comunidad */}
+          {/* Botón de Campana de Notificaciones */}
           <TouchableOpacity
             activeOpacity={0.7}
             style={styles.bellButton}
-            onPress={() => setShowLogModal(true)}
+            onPress={handleOpenNotifications}
           >
             <Ionicons name="notifications" size={20} color={COLORS.text} />
-            {activityLog.length > 0 && (
+            {unreadCount > 0 && (
               <View style={styles.bellBadge}>
-                <Text style={styles.bellBadgeText}>{activityLog.length}</Text>
+                <Text style={styles.bellBadgeText}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -86,11 +108,6 @@ export const Header: React.FC<HeaderProps> = ({
           style={[styles.tabButton, !showCompleted && styles.activeTabButton]}
           onPress={() => onToggleStatus(false)}
         >
-          <Ionicons
-            name="alert-circle"
-            size={18}
-            color={!showCompleted ? COLORS.primary : COLORS.textMuted}
-          />
           <Text
             style={[
               styles.tabText,
@@ -106,11 +123,6 @@ export const Header: React.FC<HeaderProps> = ({
           style={[styles.tabButton, showCompleted && styles.completedTabButton]}
           onPress={() => onToggleStatus(true)}
         >
-          <Ionicons
-            name="checkmark-circle"
-            size={18}
-            color={showCompleted ? COLORS.secondary : COLORS.textMuted}
-          />
           <Text
             style={[
               styles.tabText,
@@ -209,9 +221,9 @@ export const Header: React.FC<HeaderProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: COLORS.card,
-    paddingTop: 12,
+    paddingTop: 8,
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
     shadowColor: "#000",
@@ -223,61 +235,32 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 8,
   },
   logoBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: COLORS.primary,
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: COLORS.border,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
+    marginRight: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   titleContainer: {
     flex: 1,
-  },
-  titleWithPresence: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
   },
   brandTitle: {
     fontSize: 18,
     fontWeight: "800",
     color: COLORS.text,
     letterSpacing: -0.5,
-  },
-  onlineBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#DCFCE7",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    gap: 4,
-  },
-  onlineDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#22C55E",
-  },
-  onlineText: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: "#15803D",
-  },
-  brandSlogan: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-    fontStyle: "italic",
-    marginTop: 1,
   },
   rightHeaderButtons: {
     flexDirection: "row",
