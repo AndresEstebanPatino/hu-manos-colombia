@@ -40,6 +40,6 @@ export interface UserProfile {
   email?: string;
   telefono?: string;
   avatar_url?: string;
-  metodo_auth: "GOOGLE" | "TELEFONO" | "RAPIDO";
+  metodo_auth: "GOOGLE" | "TELEFONO" | "RAPIDO" | "EMAIL";
   creado_en: string;
 }

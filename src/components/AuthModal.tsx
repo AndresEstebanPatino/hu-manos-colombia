@@ -19,11 +19,13 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
-  const { user, signInWithGoogle, signInWithPhone, signInQuick, signOut, isLoading } = useAuth();
+  const { user, signInWithGoogle, signInWithPhone, signInQuick, signInWithEmail, signOut, isLoading } = useAuth();
 
-  const [mode, setMode] = useState<"OPTIONS" | "PHONE" | "QUICK">("OPTIONS");
+  const [mode, setMode] = useState<"OPTIONS" | "PHONE" | "QUICK" | "EMAIL">("OPTIONS");
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   const handleGoogleSignIn = async () => {
     try {
@@ -60,6 +62,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
       onClose();
     } catch (err) {
       Alert.alert("Error", "No se pudo crear el perfil.");
+    }
+  };
+
+  const handleEmailSubmit = async () => {
+    if (!email.trim() || !password.trim()) {
+      Alert.alert("Requerido", "Ingresa tu correo y contraseña.");
+      return;
+    }
+    try {
+      await signInWithEmail(email.trim(), password);
+      Alert.alert("¡Sesión iniciada!", "Bienvenido/a.");
+      onClose();
+    } catch (err) {
+      Alert.alert("Error", "Correo o contraseña inválidos.");
     }
   };
 
@@ -126,6 +142,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
                   >
                     <Ionicons name="phone-portrait-sharp" size={20} color={COLORS.whatsappGreen} />
                     <Text style={styles.phoneText}>Ingresar con Celular / WhatsApp</Text>
+                  </TouchableOpacity>
+
+                  {/* Email / Contraseña (coordinador y roles) */}
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    style={styles.emailButton}
+                    onPress={() => setMode("EMAIL")}
+                  >
+                    <Ionicons name="mail" size={20} color={COLORS.primary} />
+                    <Text style={styles.emailText}>Ingresar con Correo (Coordinación)</Text>
                   </TouchableOpacity>
 
                   {/* Continuar como Invitado */}
@@ -205,6 +231,41 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
 
                   <TouchableOpacity style={styles.submitBtn} onPress={handleQuickSubmit}>
                     <Text style={styles.submitBtnText}>Activar Perfil Rápido</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* Formulario Email / Contraseña */}
+              {mode === "EMAIL" && (
+                <View style={styles.formContainer}>
+                  <TouchableOpacity onPress={() => setMode("OPTIONS")} style={styles.backLink}>
+                    <Ionicons name="arrow-back" size={16} color={COLORS.primary} />
+                    <Text style={styles.backText}>Volver a opciones</Text>
+                  </TouchableOpacity>
+
+                  <Text style={styles.inputLabel}>Correo *</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="coordinador@dominio.com"
+                    placeholderTextColor="#94A3B8"
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                  />
+
+                  <Text style={styles.inputLabel}>Contraseña *</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Tu contraseña"
+                    placeholderTextColor="#94A3B8"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                  />
+
+                  <TouchableOpacity style={styles.submitBtn} onPress={handleEmailSubmit}>
+                    <Text style={styles.submitBtnText}>Ingresar</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -358,6 +419,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     color: "#475569",
+  },
+  emailButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.primaryLight,
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+    paddingVertical: 12,
+    borderRadius: 14,
+    gap: 10,
+  },
+  emailText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: COLORS.primary,
   },
   formContainer: {
     gap: 10,

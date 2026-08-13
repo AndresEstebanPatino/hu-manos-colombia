@@ -2,6 +2,7 @@
 // Las implementaciones reales viven en services/ (front) y supabase/ (back).
 
 import { ReportePersona, SyncState, Coincidencia } from "./types";
+import { RolPrivilegiado } from "./roles";
 
 export interface ReportRepository {
   /** Crea un reporte en almacenamiento local. */
@@ -47,6 +48,14 @@ export interface SyncEngine {
 export interface RemoteReportGateway {
   /** Upsert idempotente de un reporte en el servidor. Puede rechazar (error de red). */
   upsert(reporte: ReportePersona): Promise<void>;
+}
+
+/** Puerto de autenticación + roles del coordinador (email/password). */
+export interface CoordinadorAuthPort {
+  /** Inicia sesión con email/contraseña; devuelve el id del usuario. */
+  signInWithPassword(email: string, password: string): Promise<{ userId: string; email: string | null }>;
+  /** Roles privilegiados del usuario (de `reencuentro_roles`). */
+  obtenerRoles(userId: string): Promise<RolPrivilegiado[]>;
 }
 
 /** Puerto del tablero del coordinador (human-in-the-loop). */
