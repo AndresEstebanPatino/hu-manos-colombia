@@ -75,3 +75,9 @@ export interface ReportsQueryPort {
   /** BUSCADA de no-menores en estado ACTIVO (lista pública). */
   listarBuscadasPublicas(): Promise<ReportePersona[]>;
 }
+
+/** Mutaciones de reportes (cierre, etc.). RLS: solo coordinador o creador. */
+export interface ReportMutationPort {
+  /** Marca un reporte como RESUELTO (persona encontrada / caso cerrado). */
+  marcarResuelto(id: string): Promise<void>;
+}
