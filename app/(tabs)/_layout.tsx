@@ -2,8 +2,10 @@ import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { View, StyleSheet } from "react-native";
 import { COLORS } from "../../src/constants/theme";
+import { useAuth } from "../../src/context/AuthContext";
 
 export default function TabLayout() {
+  const { esCoordinador } = useAuth();
   return (
     <Tabs
       screenOptions={{
@@ -31,6 +33,19 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "heart" : "heart-outline"}
+              size={24}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="reencuentro"
+        options={{
+          title: "Reencuentro",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "people" : "people-outline"}
               size={24}
               color={color}
             />
@@ -68,6 +83,20 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "call" : "call-outline"}
+              size={22}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="coordinacion"
+        options={{
+          title: "Coordinación",
+          href: esCoordinador ? undefined : null,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "shield-checkmark" : "shield-checkmark-outline"}
               size={22}
               color={color}
             />

@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import { UserProfile } from "../types/need";
+import { RolPrivilegiado } from "../features/reencuentro/domain";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { registerForPushNotificationsAsync } from "../services/pushNotifications";
 
@@ -15,7 +16,13 @@ interface AuthContextProps {
   isLoading: boolean;
   signInWithGoogle: () => Promise<UserProfile>;
   signInWithPhone: (telefono: string, nombre?: string) => Promise<UserProfile>;
+<<<<<<< HEAD
   signInQuick: (nombre?: string, telefono?: string) => Promise<UserProfile>;
+=======
+  signInQuick: (nombre?: string, telefono?: string) => Promise<UserProfile>; // Continuar como Invitado
+  signInWithEmail: (email: string, password: string) => Promise<UserProfile>;
+  esCoordinador: boolean;
+>>>>>>> 4212b09f01ec0534fdc2600f23554110a70578f0
   signOut: () => Promise<void>;
 }
 
@@ -25,6 +32,8 @@ const AuthContext = createContext<AuthContextProps>({
   signInWithGoogle: async () => ({} as UserProfile),
   signInWithPhone: async () => ({} as UserProfile),
   signInQuick: async () => ({} as UserProfile),
+  signInWithEmail: async () => ({} as UserProfile),
+  esCoordinador: false,
   signOut: async () => {},
 });
 
@@ -33,6 +42,7 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [roles, setRoles] = useState<RolPrivilegiado[]>([]);
 
   // Procesa URLs de retorno OAuth (Deep Linking) y realiza el intercambio de sesión
   const handleAuthRedirectUrl = async (url: string) => {
@@ -203,6 +213,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user?.id]);
 
+  // Cargar roles privilegiados (RBAC) solo para usuarios autenticados reales (uuid).
+  useEffect(() => {
+    let activo = true;
+    (async () => {
+      const esUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        user?.id ?? ""
+      );
+      if (!user?.id || !esUuid || !isSupabaseConfigured()) {
+        setRoles([]);
+        return;
+      }
+      try {
+        const { data } = await supabase
+          .from("reencuentro_roles")
+          .select("rol")
+          .eq("user_id", user.id);
+        if (activo) setRoles(((data ?? []) as { rol: RolPrivilegiado }[]).map((r) => r.rol));
+      } catch {
+        if (activo) setRoles([]);
+      }
+    })();
+    return () => {
+      activo = false;
+    };
+  }, [user?.id]);
+
   const saveUserSession = async (profile: UserProfile) => {
     setUser(profile);
     await AsyncStorage.setItem(USER_SESSION_KEY, JSON.stringify(profile));
@@ -343,6 +379,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Inicio de sesión con Email / Contraseña (roles privilegiados: coordinador, hospital, albergue).
+  const signInWithEmail = async (email: string, password: string): Promise<UserProfile> => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error || !data.user) {
+        throw new Error(error?.message || "No se pudo iniciar sesión.");
+      }
+      const profile: UserProfile = {
+        id: data.user.id,
+        nombre: data.user.email?.split("@")[0] || "Coordinador",
+        email: data.user.email ?? undefined,
+        metodo_auth: "EMAIL",
+        creado_en: data.user.created_at || new Date().toISOString(),
+      };
+      await saveUserSession(profile);
+      return profile;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const signOut = async () => {
     setIsLoading(true);
     try {
@@ -366,6 +424,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signInWithGoogle,
         signInWithPhone,
         signInQuick,
+        signInWithEmail,
+        esCoordinador: roles.includes("COORDINADOR"),
         signOut,
       }}
     >
