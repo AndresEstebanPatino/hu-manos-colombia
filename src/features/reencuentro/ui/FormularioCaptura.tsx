@@ -9,7 +9,13 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { COLORS } from "../../../constants/theme";
-import { CrearReporteInput, TipoReporte } from "../domain";
+import {
+  CrearReporteInput,
+  TipoReporte,
+  LocationProvider,
+  Geocoder,
+  formatearCoords,
+} from "../domain";
 import { CrearReporteResultado } from "../services/crear-reporte";
 
 interface Props {
@@ -17,13 +23,17 @@ interface Props {
   creadoPorId: string;
   /** Caso de uso de captura (inyectado para testeo). */
   onCrear: (input: CrearReporteInput) => Promise<CrearReporteResultado>;
+  /** GPS del dispositivo; si falta, se oculta "Usar mi ubicación". */
+  locationProvider?: LocationProvider;
+  /** Geocodificación inversa (coords -> texto); opcional (fallback: "lat, lng"). */
+  geocoder?: Geocoder;
 }
 
 /**
  * Pantalla de captura de persona (BUSCADA / ENCONTRADA). Offline-first:
  * al enviar, el reporte se guarda local y se sincroniza al recuperar señal.
  */
-export function FormularioCaptura({ creadoPorId, onCrear }: Props) {
+export function FormularioCaptura({ creadoPorId, onCrear, locationProvider, geocoder }: Props) {
   const [tipo, setTipo] = useState<TipoReporte>("BUSCADA");
   const [nombre, setNombre] = useState("");
   const [edad, setEdad] = useState("");
@@ -33,6 +43,7 @@ export function FormularioCaptura({ creadoPorId, onCrear }: Props) {
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState<CrearReporteResultado | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [ubicando, setUbicando] = useState(false);
 
   const rol = tipo === "BUSCADA" ? "FAMILIAR" : "SOCORRISTA";
 
@@ -44,6 +55,23 @@ export function FormularioCaptura({ creadoPorId, onCrear }: Props) {
     setContacto("");
     setResultado(null);
   };
+
+  async function usarUbicacion() {
+    if (!locationProvider) return;
+    setUbicando(true);
+    setError(null);
+    try {
+      const coords = await locationProvider.obtenerActual();
+      if (!coords) {
+        setError("No pudimos obtener tu ubicación. Revisa los permisos de GPS.");
+        return;
+      }
+      const texto = geocoder ? await geocoder.describir(coords) : null;
+      setUbicacion(texto ?? formatearCoords(coords));
+    } finally {
+      setUbicando(false);
+    }
+  }
 
   async function enviar() {
     setEnviando(true);
@@ -127,6 +155,21 @@ export function FormularioCaptura({ creadoPorId, onCrear }: Props) {
         onChangeText={setEdad}
         keyboardType="number-pad"
       />
+      {locationProvider ? (
+        <Pressable
+          testID="usar-ubicacion"
+          style={[styles.ubicBtn, ubicando && styles.botonDisabled]}
+          onPress={usarUbicacion}
+          disabled={ubicando}
+          accessibilityRole="button"
+        >
+          {ubicando ? (
+            <ActivityIndicator color={COLORS.primary} />
+          ) : (
+            <Text style={styles.ubicBtnTexto}>📍 Usar mi ubicación</Text>
+          )}
+        </Pressable>
+      ) : null}
       <TextInput
         style={styles.input}
         placeholder="Última ubicación conocida"
@@ -204,6 +247,15 @@ const styles = StyleSheet.create({
   },
   botonDisabled: { opacity: 0.6 },
   botonTexto: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  ubicBtn: {
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primaryLight,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  ubicBtnTexto: { color: COLORS.primary, fontWeight: "700" },
   advertencia: { color: COLORS.flagYellow, fontSize: 13 },
   error: { color: COLORS.flagRedSoft, fontSize: 13 },
 });
