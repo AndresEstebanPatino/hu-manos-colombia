@@ -1,20 +1,32 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { View, Text, Pressable, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, StyleSheet, ActivityIndicator, Alert } from "react-native";
 import { COLORS } from "../../../constants/theme";
-import { Coincidencia, MatchBoardService } from "../domain";
+import {
+  Coincidencia,
+  MatchBoardService,
+  SolicitudCoordinador,
+  SolicitudesQueryPort,
+  CoordinadorAprobacionPort,
+} from "../domain";
 import { TableroCoordinador } from "./TableroCoordinador";
+import { PanelSolicitudes } from "./PanelSolicitudes";
 
 interface Props {
   /** Servicio del tablero (inyectado para testeo; en la ruta real es Supabase). */
   service: MatchBoardService;
+  /** Consulta de solicitudes de coordinador; si falta, no se muestra el panel. */
+  solicitudesQuery?: SolicitudesQueryPort;
+  /** Aprobación/rechazo de solicitudes; requerido para operar el panel. */
+  aprobacion?: CoordinadorAprobacionPort;
 }
 
 /**
  * Contenedor del tablero del coordinador: carga coincidencias, dispara la
  * búsqueda (RPC) y aplica confirmar/rechazar contra el servicio.
  */
-export function PantallaCoordinacion({ service }: Props) {
+export function PantallaCoordinacion({ service, solicitudesQuery, aprobacion }: Props) {
   const [coincidencias, setCoincidencias] = useState<Coincidencia[]>([]);
+  const [solicitudes, setSolicitudes] = useState<SolicitudCoordinador[]>([]);
   const [cargando, setCargando] = useState(false);
   const [buscando, setBuscando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,9 +43,19 @@ export function PantallaCoordinacion({ service }: Props) {
     }
   }, [service]);
 
+  const cargarSolicitudes = useCallback(async () => {
+    if (!solicitudesQuery) return;
+    try {
+      setSolicitudes(await solicitudesQuery.listarPendientes());
+    } catch {
+      // El panel es secundario: si falla, no bloquea el tablero de coincidencias.
+    }
+  }, [solicitudesQuery]);
+
   useEffect(() => {
     void cargar();
-  }, [cargar]);
+    void cargarSolicitudes();
+  }, [cargar, cargarSolicitudes]);
 
   const buscar = async () => {
     setBuscando(true);
@@ -58,6 +80,47 @@ export function PantallaCoordinacion({ service }: Props) {
     await cargar();
   };
 
+  const aprobarSolicitud = (id: string) => {
+    if (!aprobacion) return;
+    Alert.alert(
+      "Aprobar coordinador",
+      "Se le otorgará el rol COORDINADOR (acceso a datos sensibles). ¿Confirmas?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Sí, aprobar",
+          onPress: async () => {
+            try {
+              await aprobacion.aprobar(id);
+              await cargarSolicitudes();
+            } catch {
+              Alert.alert("No se pudo aprobar", "Intenta de nuevo.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const rechazarSolicitud = (id: string) => {
+    if (!aprobacion) return;
+    Alert.alert("Rechazar solicitud", "¿Rechazar esta solicitud de coordinador?", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Rechazar",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await aprobacion.rechazar(id, "Rechazada por el coordinador");
+            await cargarSolicitudes();
+          } catch {
+            Alert.alert("No se pudo rechazar", "Intenta de nuevo.");
+          }
+        },
+      },
+    ]);
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -77,6 +140,14 @@ export function PantallaCoordinacion({ service }: Props) {
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      {solicitudesQuery && aprobacion ? (
+        <PanelSolicitudes
+          solicitudes={solicitudes}
+          onAprobar={aprobarSolicitud}
+          onRechazar={rechazarSolicitud}
+        />
+      ) : null}
 
       {cargando ? (
         <ActivityIndicator style={styles.loader} color={COLORS.primary} />
