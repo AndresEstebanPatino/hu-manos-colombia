@@ -1,4 +1,4 @@
-import { puedeMarcarResuelto } from "../acciones";
+import { puedeMarcarResuelto, construirAvistamiento } from "../acciones";
 import { ReportePersona } from "../types";
 
 function reporte(over: Partial<ReportePersona> = {}): ReportePersona {
@@ -37,5 +37,32 @@ describe("puedeMarcarResuelto", () => {
   it("no se resuelve un reporte ya RESUELTO/ARCHIVADO", () => {
     expect(puedeMarcarResuelto(reporte({ estado: "RESUELTO" }), "fam1", ["COORDINADOR"])).toBe(false);
     expect(puedeMarcarResuelto(reporte({ estado: "ARCHIVADO" }), "fam1", ["COORDINADOR"])).toBe(false);
+  });
+});
+
+describe("construirAvistamiento", () => {
+  it("crea un ENCONTRADA con las pistas de la BUSCADA", () => {
+    const buscada = reporte({
+      nombre: "Ana Gómez",
+      edadAprox: 30,
+      sexo: "F",
+      senasParticulares: "cicatriz en la ceja",
+    });
+    const av = construirAvistamiento(buscada, "observador-1");
+    expect(av.tipo).toBe("ENCONTRADA");
+    expect(av.creadoPorId).toBe("observador-1");
+    expect(av.creadoPorRol).toBe("FAMILIAR");
+    expect(av.nombre).toBe("Ana Gómez");
+    expect(av.edadAprox).toBe(30);
+    expect(av.sexo).toBe("F");
+    expect(av.senasParticulares).toBe("cicatriz en la ceja");
+    expect(av.estadoVital).toBe("CON_VIDA");
+  });
+
+  it("NO arrastra el id ni el estado de la BUSCADA (es un reporte nuevo)", () => {
+    const buscada = reporte({ id: "buscada-99", estado: "ACTIVO" });
+    const av = construirAvistamiento(buscada, "obs") as unknown as Record<string, unknown>;
+    expect(av.id).toBeUndefined();
+    expect(av.estado).toBeUndefined();
   });
 });
