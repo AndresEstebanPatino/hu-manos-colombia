@@ -5,11 +5,15 @@ import { FormularioCaptura } from "../../src/features/reencuentro/ui/FormularioC
 import { crearCaptureService } from "../../src/features/reencuentro/services/capture-service";
 import { iniciarAutoSync } from "../../src/features/reencuentro/services/auto-sync";
 import { NetInfoConnectivityMonitor } from "../../src/features/reencuentro/services/netinfo-connectivity-monitor";
+import { ExpoLocationProvider } from "../../src/features/reencuentro/services/expo-location-provider";
+import { NominatimGeocoder } from "../../src/features/reencuentro/services/nominatim-geocoder";
 import { useAuth } from "../../src/context/AuthContext";
 import { COLORS } from "../../src/constants/theme";
 
 const service = crearCaptureService();
 const connectivity = new NetInfoConnectivityMonitor();
+const locationProvider = new ExpoLocationProvider();
+const geocoder = new NominatimGeocoder();
 
 export default function ReencuentroTab() {
   const { user } = useAuth();
@@ -31,7 +35,12 @@ export default function ReencuentroTab() {
           </Pressable>
         </Link>
       </View>
-      <FormularioCaptura creadoPorId={user?.id ?? "anonimo"} onCrear={service.crear} />
+      <FormularioCaptura
+        creadoPorId={user?.id ?? "anonimo"}
+        onCrear={service.crear}
+        locationProvider={locationProvider}
+        geocoder={geocoder}
+      />
     </SafeAreaView>
   );
 }

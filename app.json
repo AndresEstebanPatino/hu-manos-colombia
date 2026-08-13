@@ -18,7 +18,13 @@
       "output": "single"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Hu-Manos usa tu ubicación para autocompletar dónde se busca o se vio a la persona."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

@@ -46,4 +46,48 @@ describe("FormularioCaptura", () => {
     fireEvent.press(screen.getByTestId("toggle-encontrada"));
     expect(screen.queryByPlaceholderText("Tu WhatsApp para avisarte")).toBeNull();
   });
+
+  it("no muestra 'Usar mi ubicación' si no se inyecta locationProvider", () => {
+    render(<FormularioCaptura creadoPorId="u1" onCrear={onCrearOk()} />);
+    expect(screen.queryByTestId("usar-ubicacion")).toBeNull();
+  });
+
+  it("'Usar mi ubicación' autocompleta con el texto geocodificado", async () => {
+    const locationProvider = {
+      obtenerActual: jest.fn().mockResolvedValue({ lat: 5.69, lng: -76.65 }),
+    };
+    const geocoder = { describir: jest.fn().mockResolvedValue("Quibdó, Chocó") };
+    render(
+      <FormularioCaptura
+        creadoPorId="u1"
+        onCrear={onCrearOk()}
+        locationProvider={locationProvider}
+        geocoder={geocoder}
+      />
+    );
+
+    fireEvent.press(screen.getByTestId("usar-ubicacion"));
+
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("Última ubicación conocida").props.value).toBe("Quibdó, Chocó")
+    );
+    expect(locationProvider.obtenerActual).toHaveBeenCalled();
+  });
+
+  it("cae al fallback 'lat, lng' cuando no hay geocoder", async () => {
+    const locationProvider = {
+      obtenerActual: jest.fn().mockResolvedValue({ lat: 5.69123, lng: -76.65 }),
+    };
+    render(
+      <FormularioCaptura creadoPorId="u1" onCrear={onCrearOk()} locationProvider={locationProvider} />
+    );
+
+    fireEvent.press(screen.getByTestId("usar-ubicacion"));
+
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("Última ubicación conocida").props.value).toBe(
+        "5.69123, -76.65000"
+      )
+    );
+  });
 });
