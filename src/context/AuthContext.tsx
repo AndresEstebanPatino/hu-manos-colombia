@@ -16,13 +16,9 @@ interface AuthContextProps {
   isLoading: boolean;
   signInWithGoogle: () => Promise<UserProfile>;
   signInWithPhone: (telefono: string, nombre?: string) => Promise<UserProfile>;
-<<<<<<< HEAD
   signInQuick: (nombre?: string, telefono?: string) => Promise<UserProfile>;
-=======
-  signInQuick: (nombre?: string, telefono?: string) => Promise<UserProfile>; // Continuar como Invitado
   signInWithEmail: (email: string, password: string) => Promise<UserProfile>;
   esCoordinador: boolean;
->>>>>>> 4212b09f01ec0534fdc2600f23554110a70578f0
   signOut: () => Promise<void>;
 }
 

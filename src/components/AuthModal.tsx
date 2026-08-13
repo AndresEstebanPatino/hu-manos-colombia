@@ -24,7 +24,9 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
-  const { user, signInWithGoogle, signInWithPhone, signInQuick, signOut, isLoading } = useAuth();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { user, signInWithGoogle, signInWithPhone, signInQuick, signInWithEmail, signOut, isLoading } = useAuth();
 
   const [mode, setMode] = useState<"OPTIONS" | "PHONE" | "QUICK" | "EMAIL">("OPTIONS");
   const [nombre, setNombre] = useState("");
