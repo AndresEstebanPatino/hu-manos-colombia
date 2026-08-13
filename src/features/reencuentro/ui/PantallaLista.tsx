@@ -9,15 +9,31 @@ import {
   StyleSheet,
   ActivityIndicator,
   Linking,
+  Alert,
 } from "react-native";
 import { COLORS } from "../../../constants/theme";
-import { ReportePersona, ReportsQueryPort, aplicarFiltros } from "../domain";
+import {
+  ReportePersona,
+  ReportsQueryPort,
+  RolPrivilegiado,
+  ReportMutationPort,
+  aplicarFiltros,
+  puedeMarcarResuelto,
+} from "../domain";
 import { mensajeDifusion, urlCompartirWhatsApp } from "../services/compartir";
 
 interface Props {
   query: ReportsQueryPort;
   /** Inyectable para testeo (por defecto abre WhatsApp con Linking). */
   abrirUrl?: (url: string) => void;
+  /** Usuario actual (null = anónimo). Habilita "Marcar encontrada" si autoriza. */
+  actorId?: string | null;
+  /** Roles del usuario actual (para la guarda de resolución). */
+  roles?: RolPrivilegiado[];
+  /** Puerto de mutación; si falta, se oculta "Marcar encontrada". */
+  mutation?: ReportMutationPort;
+  /** Handler de avistamiento ("La vi"); si falta, se oculta el botón. */
+  onAvistamiento?: (r: ReportePersona) => Promise<void> | void;
 }
 
 /** Lista pública de personas BUSCADAS: buscador tolerante + filtros + compartir. */
@@ -26,12 +42,17 @@ export function PantallaLista({
   abrirUrl = (u) => {
     void Linking.openURL(u);
   },
+  actorId = null,
+  roles = [],
+  mutation,
+  onAvistamiento,
 }: Props) {
   const [reportes, setReportes] = useState<ReportePersona[]>([]);
   const [texto, setTexto] = useState("");
   const [soloConFoto, setSoloConFoto] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [accionando, setAccionando] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -55,6 +76,56 @@ export function PantallaLista({
   );
 
   const compartir = (r: ReportePersona) => abrirUrl(urlCompartirWhatsApp(mensajeDifusion(r)));
+
+  const avistar = (r: ReportePersona) => {
+    if (!onAvistamiento) return;
+    Alert.alert(
+      "¿La viste?",
+      `Vas a avisar que viste a ${r.nombre ?? "esta persona"}. Un coordinador lo validará; no se notifica a la familia todavía.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Sí, la vi",
+          onPress: async () => {
+            setAccionando(r.id);
+            try {
+              await onAvistamiento(r);
+              Alert.alert("¡Gracias!", "Tu aviso llegó al coordinador para validación.");
+            } catch {
+              Alert.alert("No se pudo enviar", "Intenta de nuevo cuando tengas conexión.");
+            } finally {
+              setAccionando(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const resolver = (r: ReportePersona) => {
+    if (!mutation) return;
+    Alert.alert(
+      "Marcar como encontrada",
+      `¿Confirmas que ${r.nombre ?? "esta persona"} ya fue encontrada? El caso se cerrará.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Sí, encontrada",
+          onPress: async () => {
+            setAccionando(r.id);
+            try {
+              await mutation.marcarResuelto(r.id);
+              await cargar();
+            } catch {
+              Alert.alert("No se pudo", "Intenta de nuevo cuando tengas conexión.");
+            } finally {
+              setAccionando(null);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -100,13 +171,39 @@ export function PantallaLista({
                 {r.ultimaUbicacion?.texto ? (
                   <Text style={styles.meta}>{r.ultimaUbicacion.texto}</Text>
                 ) : null}
-                <Pressable
-                  style={styles.compartir}
-                  onPress={() => compartir(r)}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.compartirTexto}>Compartir</Text>
-                </Pressable>
+                <View style={styles.acciones}>
+                  <Pressable
+                    style={styles.compartir}
+                    onPress={() => compartir(r)}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.compartirTexto}>Compartir</Text>
+                  </Pressable>
+
+                  {onAvistamiento ? (
+                    <Pressable
+                      testID={`avistar-${r.id}`}
+                      style={styles.avistar}
+                      onPress={() => avistar(r)}
+                      disabled={accionando === r.id}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.avistarTexto}>La vi</Text>
+                    </Pressable>
+                  ) : null}
+
+                  {mutation && puedeMarcarResuelto(r, actorId ?? "", roles) ? (
+                    <Pressable
+                      testID={`resolver-${r.id}`}
+                      style={styles.resolver}
+                      onPress={() => resolver(r)}
+                      disabled={accionando === r.id}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.resolverTexto}>Marcar encontrada</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
               </View>
             </View>
           ))}
@@ -167,13 +264,28 @@ const styles = StyleSheet.create({
   cardBody: { flex: 1, gap: 2 },
   nombre: { fontSize: 16, fontWeight: "700", color: COLORS.text },
   meta: { fontSize: 13, color: COLORS.textMuted },
+  acciones: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
   compartir: {
-    alignSelf: "flex-start",
-    marginTop: 6,
     backgroundColor: COLORS.whatsappGreen,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
   compartirTexto: { color: "#fff", fontWeight: "700", fontSize: 13 },
+  avistar: {
+    backgroundColor: COLORS.primaryLight,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  avistarTexto: { color: COLORS.primary, fontWeight: "700", fontSize: 13 },
+  resolver: {
+    backgroundColor: COLORS.secondary,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  resolverTexto: { color: "#fff", fontWeight: "700", fontSize: 13 },
 });
