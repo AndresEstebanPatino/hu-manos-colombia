@@ -74,3 +74,32 @@ export function validarSignupCoordinador(input: SignupCoordinadorInput): Errores
 export function signupEsValido(input: SignupCoordinadorInput): boolean {
   return Object.keys(validarSignupCoordinador(input)).length === 0;
 }
+
+/** Solicitud tal como la ve el tablero del coordinador (para revisar/aprobar). */
+export interface SolicitudCoordinador {
+  id: string;
+  userId: string;
+  nombreCompleto: string;
+  email: string;
+  telefono: string;
+  zona: string;
+  organizacion?: string;
+  estado: EstadoSolicitudCoordinador;
+  creadoEn: string;
+}
+
+/** Consulta de solicitudes para el tablero (solo coordinador, por RLS). */
+export interface SolicitudesQueryPort {
+  /** Solicitudes en estado PENDIENTE, ordenadas por antigüedad. */
+  listarPendientes(): Promise<SolicitudCoordinador[]>;
+}
+
+/**
+ * Aprobación/rechazo de solicitudes (camino 'b'). La aprobación es ATÓMICA:
+ * otorga rol COORDINADOR + marca APROBADA + audita, en una sola transacción
+ * (RPC SECURITY DEFINER). Solo un COORDINADOR autenticado puede invocarla.
+ */
+export interface CoordinadorAprobacionPort {
+  aprobar(solicitudId: string): Promise<void>;
+  rechazar(solicitudId: string, motivo: string): Promise<void>;
+}
