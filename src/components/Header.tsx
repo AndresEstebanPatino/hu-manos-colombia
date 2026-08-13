@@ -19,7 +19,7 @@ export const Header: React.FC<HeaderProps> = ({
   activeCount,
   completedCount,
 }) => {
-  const { onlineCount, activityLog, fetchNotifications } = useNotifications();
+  const { onlineCount, activityLog, unreadCount, markNotificationsAsRead, fetchNotifications } = useNotifications();
   const { user } = useAuth();
   const [showLogModal, setShowLogModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -31,23 +31,21 @@ export const Header: React.FC<HeaderProps> = ({
     }
   }, [showLogModal, fetchNotifications]);
 
+  const handleOpenNotifications = () => {
+    setShowLogModal(true);
+    markNotificationsAsRead();
+    fetchNotifications();
+  };
+
   return (
     <View style={styles.container}>
-      {/* Top Banner Branding */}
+      {/* Top Banner Branding: Logo + Nombre */}
       <View style={styles.topRow}>
         <View style={styles.logoBadge}>
-          <Ionicons name="heart" size={24} color="#FFFFFF" />
+          <Ionicons name="heart" size={22} color="#FFFFFF" />
         </View>
         <View style={styles.titleContainer}>
-          <View style={styles.titleWithPresence}>
-            <Text style={styles.brandTitle}>Hu-Manos Colombia</Text>
-            {/* Indicador de Usuarios en Línea */}
-            <View style={styles.onlineBadge}>
-              <View style={styles.onlineDot} />
-              <Text style={styles.onlineText}>{onlineCount} en línea</Text>
-            </View>
-          </View>
-          <Text style={styles.brandSlogan}>"Una mano para quien lo necesita"</Text>
+          <Text style={styles.brandTitle}>Hu-Manos Colombia</Text>
         </View>
 
         <View style={styles.rightHeaderButtons}>
@@ -60,16 +58,16 @@ export const Header: React.FC<HeaderProps> = ({
             <Ionicons name="person-circle" size={24} color={user?.metodo_auth === "GOOGLE" ? "#EA4335" : COLORS.primary} />
           </TouchableOpacity>
 
-          {/* Botón de Campana de Notificaciones de la Comunidad */}
+          {/* Botón de Campana de Notificaciones */}
           <TouchableOpacity
             activeOpacity={0.7}
             style={styles.bellButton}
-            onPress={() => setShowLogModal(true)}
+            onPress={handleOpenNotifications}
           >
             <Ionicons name="notifications" size={20} color={COLORS.text} />
-            {activityLog.length > 0 && (
+            {unreadCount > 0 && (
               <View style={styles.bellBadge}>
-                <Text style={styles.bellBadgeText}>{activityLog.length}</Text>
+                <Text style={styles.bellBadgeText}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -86,11 +84,6 @@ export const Header: React.FC<HeaderProps> = ({
           style={[styles.tabButton, !showCompleted && styles.activeTabButton]}
           onPress={() => onToggleStatus(false)}
         >
-          <Ionicons
-            name="alert-circle"
-            size={18}
-            color={!showCompleted ? COLORS.primary : COLORS.textMuted}
-          />
           <Text
             style={[
               styles.tabText,
@@ -106,11 +99,6 @@ export const Header: React.FC<HeaderProps> = ({
           style={[styles.tabButton, showCompleted && styles.completedTabButton]}
           onPress={() => onToggleStatus(true)}
         >
-          <Ionicons
-            name="checkmark-circle"
-            size={18}
-            color={showCompleted ? COLORS.secondary : COLORS.textMuted}
-          />
           <Text
             style={[
               styles.tabText,
@@ -209,9 +197,9 @@ export const Header: React.FC<HeaderProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: COLORS.card,
-    paddingTop: 12,
+    paddingTop: 8,
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
     shadowColor: "#000",
@@ -223,61 +211,30 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 8,
   },
   logoBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 38,
+    height: 38,
+    borderRadius: 10,
     backgroundColor: COLORS.primary,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
+    marginRight: 10,
     shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
   },
   titleContainer: {
     flex: 1,
-  },
-  titleWithPresence: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
   },
   brandTitle: {
     fontSize: 18,
     fontWeight: "800",
     color: COLORS.text,
     letterSpacing: -0.5,
-  },
-  onlineBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#DCFCE7",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    gap: 4,
-  },
-  onlineDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#22C55E",
-  },
-  onlineText: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: "#15803D",
-  },
-  brandSlogan: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-    fontStyle: "italic",
-    marginTop: 1,
   },
   rightHeaderButtons: {
     flexDirection: "row",

@@ -1,8 +1,13 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || "https://xrxuzvvvorxukyoeqibg.supabase.co";
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "sb_publishable_5PQ8ugmExZQulip3fmD3eA_hRMLoNqH";
+const supabaseUrl =
+  process.env.EXPO_PUBLIC_SUPABASE_URL ||
+  "https://xrxuzvvvorxukyoeqibg.supabase.co";
+
+const supabaseAnonKey =
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyeHV6dnZ2b3J4dWt5b2VxaWJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjMyNjU4MzIsImV4cCI6MjAzODg0MTgzMn0.placeholder";
 
 export const isSupabaseConfigured = (): boolean => {
   return (
@@ -18,19 +23,31 @@ const SafeStorageAdapter = {
     if (typeof window === "undefined") {
       return Promise.resolve(null);
     }
-    return AsyncStorage.getItem(key);
+    try {
+      return AsyncStorage.getItem(key);
+    } catch (e) {
+      return Promise.resolve(null);
+    }
   },
   setItem: (key: string, value: string) => {
     if (typeof window === "undefined") {
       return Promise.resolve();
     }
-    return AsyncStorage.setItem(key, value);
+    try {
+      return AsyncStorage.setItem(key, value);
+    } catch (e) {
+      return Promise.resolve();
+    }
   },
   removeItem: (key: string) => {
     if (typeof window === "undefined") {
       return Promise.resolve();
     }
-    return AsyncStorage.removeItem(key);
+    try {
+      return AsyncStorage.removeItem(key);
+    } catch (e) {
+      return Promise.resolve();
+    }
   },
 };
 

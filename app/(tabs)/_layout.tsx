@@ -49,6 +49,19 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="my-needs"
+        options={{
+          title: "Mis Alertas",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "megaphone" : "megaphone-outline"}
+              size={22}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="emergency"
         options={{
           title: "Líneas 123",

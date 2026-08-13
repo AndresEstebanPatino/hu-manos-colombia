@@ -22,7 +22,15 @@ export interface Necesidad {
   creado_en: string;
   unidad_medida?: string;
   creador_id?: string;
-  apoyantes_ids?: string[]; // IDs de usuarios que ya se sumaron (evita spam de clics múltiples)
+  creador_verificado?: boolean;
+  apoyantes_ids?: string[]; // IDs de usuarios que ya se sumaron
+  votos_confianza?: number; // Votos de veracidad vecinal
+  voto_confianza_ids?: string[];
+  reportes_spam?: number; // Reportes por sospecha de estafa
+  reportado_por_ids?: string[];
+  latitud?: number; // Coordenada GPS latitud
+  longitud?: number; // Coordenada GPS longitud
+  imagen_url?: string; // URL pública de imagen opcional en Supabase Storage
 }
 
 export interface CategoriaConfig {
@@ -42,4 +50,5 @@ export interface UserProfile {
   avatar_url?: string;
   metodo_auth: "GOOGLE" | "TELEFONO" | "RAPIDO";
   creado_en: string;
+  verificado?: boolean;
 }

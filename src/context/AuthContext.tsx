@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as WebBrowser from "expo-web-browser";
-import { makeRedirectUri } from "expo-auth-session";
+import * as Linking from "expo-linking";
 import { UserProfile } from "../types/need";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { registerForPushNotificationsAsync } from "../services/pushNotifications";
@@ -15,7 +15,7 @@ interface AuthContextProps {
   isLoading: boolean;
   signInWithGoogle: () => Promise<UserProfile>;
   signInWithPhone: (telefono: string, nombre?: string) => Promise<UserProfile>;
-  signInQuick: (nombre?: string, telefono?: string) => Promise<UserProfile>; // Continuar como Invitado
+  signInQuick: (nombre?: string, telefono?: string) => Promise<UserProfile>;
   signOut: () => Promise<void>;
 }
 
@@ -34,7 +34,70 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Escuchar cambios de sesión de Supabase Auth
+  // Procesa URLs de retorno OAuth (Deep Linking) y realiza el intercambio de sesión
+  const handleAuthRedirectUrl = async (url: string) => {
+    if (!url || !isSupabaseConfigured()) return;
+
+    try {
+      const parsed = Linking.parse(url);
+      const queryParams = parsed.queryParams;
+
+      // 1. Flujo PKCE con código de autorización
+      if (queryParams?.code) {
+        const { data, error } = await supabase.auth.exchangeCodeForSession(queryParams.code as string);
+        if (!error && data?.user) {
+          const sbUser = data.user;
+          const profile: UserProfile = {
+            id: sbUser.id,
+            nombre: sbUser.user_metadata?.full_name || sbUser.email?.split("@")[0] || "Usuario Google",
+            email: sbUser.email,
+            avatar_url: sbUser.user_metadata?.avatar_url,
+            metodo_auth: "GOOGLE",
+            creado_en: sbUser.created_at || new Date().toISOString(),
+          };
+          setUser(profile);
+          await AsyncStorage.setItem(USER_SESSION_KEY, JSON.stringify(profile));
+          return;
+        }
+      }
+
+      // 2. Flujo Implícito con access_token y refresh_token
+      let accessToken = queryParams?.access_token as string | undefined;
+      let refreshToken = queryParams?.refresh_token as string | undefined;
+
+      if (!accessToken && url.includes("#")) {
+        const hash = url.split("#")[1];
+        const params = new URLSearchParams(hash);
+        accessToken = params.get("access_token") || undefined;
+        refreshToken = params.get("refresh_token") || undefined;
+      }
+
+      if (accessToken && refreshToken) {
+        const { data: sessionData, error: sessionErr } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+
+        if (!sessionErr && sessionData?.user) {
+          const sbUser = sessionData.user;
+          const profile: UserProfile = {
+            id: sbUser.id,
+            nombre: sbUser.user_metadata?.full_name || sbUser.email?.split("@")[0] || "Usuario Google",
+            email: sbUser.email,
+            avatar_url: sbUser.user_metadata?.avatar_url,
+            metodo_auth: "GOOGLE",
+            creado_en: sbUser.created_at || new Date().toISOString(),
+          };
+          setUser(profile);
+          await AsyncStorage.setItem(USER_SESSION_KEY, JSON.stringify(profile));
+        }
+      }
+    } catch (err) {
+      console.error("Error al procesar URL de respuesta OAuth:", err);
+    }
+  };
+
+  // Escuchar cambios de sesión de Supabase Auth + Listener de Deep Links
   useEffect(() => {
     async function loadStoredUser() {
       try {
@@ -61,15 +124,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (stored) {
           setUser(JSON.parse(stored));
         } else {
-          // Continuar como Invitado por defecto
-          const guestUser: UserProfile = {
-            id: `guest-${Math.random().toString(36).substring(7)}`,
-            nombre: "Invitado Voluntario",
-            metodo_auth: "RAPIDO",
-            creado_en: new Date().toISOString(),
-          };
-          setUser(guestUser);
-          await AsyncStorage.setItem(USER_SESSION_KEY, JSON.stringify(guestUser));
+          setUser(null);
         }
       } catch (err) {
         console.error("Error al cargar sesión de usuario:", err);
@@ -80,6 +135,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     loadStoredUser();
 
+    // 1. Escuchar URLs entrantes por Deep Linking al abrir la app desde el navegador
+    const linkingSubscription = Linking.addEventListener("url", (event) => {
+      handleAuthRedirectUrl(event.url);
+    });
+
+    // Capturar si la app fue abierta inicialmente desde un enlace OAuth
+    Linking.getInitialURL().then((initialUrl) => {
+      if (initialUrl) {
+        handleAuthRedirectUrl(initialUrl);
+      }
+    });
+
+    // 2. Suscripción a cambios del estado de Supabase Auth
     if (isSupabaseConfigured()) {
       const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
         if (session?.user) {
@@ -98,9 +166,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       return () => {
+        linkingSubscription.remove();
         authListener.subscription.unsubscribe();
       };
     }
+
+    return () => {
+      linkingSubscription.remove();
+    };
   }, []);
 
   // Registrar ExpoPushToken del dispositivo en Supabase al identificarse el usuario
@@ -115,100 +188,91 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await AsyncStorage.setItem(USER_SESSION_KEY, JSON.stringify(profile));
   };
 
-  // Autenticación con Google usando Supabase + expo-web-browser / expo-auth-session
+  // Autenticación con Google usando Supabase + expo-linking + expo-web-browser
   const signInWithGoogle = async (): Promise<UserProfile> => {
     setIsLoading(true);
     try {
-      if (isSupabaseConfigured()) {
-        const redirectUrl = makeRedirectUri({
-          scheme: "hu-mano-colombia",
-          path: "auth/callback",
-        });
-
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: "google",
-          options: {
-            redirectTo: redirectUrl,
-            skipBrowserRedirect: true,
-          },
-        });
-
-        if (!error && data?.url) {
-          const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
-          if (result.type === "success" && result.url) {
-            const urlObj = new URL(result.url);
-            const params = new URLSearchParams(urlObj.hash.substring(1) || urlObj.search);
-            const accessToken = params.get("access_token");
-            const refreshToken = params.get("refresh_token");
-
-            if (accessToken && refreshToken) {
-              const { data: sessionData } = await supabase.auth.setSession({
-                access_token: accessToken,
-                refresh_token: refreshToken,
-              });
-
-              if (sessionData.user) {
-                const sbUser = sessionData.user;
-                const googleProfile: UserProfile = {
-                  id: sbUser.id,
-                  nombre: sbUser.user_metadata?.full_name || "Usuario Google",
-                  email: sbUser.email,
-                  avatar_url: sbUser.user_metadata?.avatar_url,
-                  metodo_auth: "GOOGLE",
-                  creado_en: new Date().toISOString(),
-                };
-                await saveUserSession(googleProfile);
-                return googleProfile;
-              }
-            }
-          }
-        }
+      if (!isSupabaseConfigured()) {
+        throw new Error("Supabase no está configurado. Verifica las variables de entorno.");
       }
 
-      // Perfil simulado si se prueba fuera de OAuth nativo
-      const fallbackGoogle: UserProfile = {
-        id: `usr-google-${Date.now()}`,
-        nombre: "Usuario Google Verificado",
-        email: "usuario.colombia@gmail.com",
-        avatar_url: "https://lh3.googleusercontent.com/a/default-user=s96-c",
-        metodo_auth: "GOOGLE",
-        creado_en: new Date().toISOString(),
-      };
+      // Generar URL de redirección dinámica utilizando expo-linking
+      const redirectUrl = Linking.createURL("auth/callback");
 
-      await saveUserSession(fallbackGoogle);
-      return fallbackGoogle;
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: redirectUrl,
+          skipBrowserRedirect: true,
+        },
+      });
+
+      if (error || !data?.url) {
+        console.error("Error al obtener URL de OAuth:", error);
+        throw new Error(error?.message || "No se pudo iniciar el flujo de autenticación con Google.");
+      }
+
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+
+      if (result.type !== "success" || !result.url) {
+        // El usuario canceló el flujo o algo impidió completarlo
+        throw new Error("El inicio de sesión con Google fue cancelado.");
+      }
+
+      // Procesar la URL de retorno con los tokens de OAuth
+      await handleAuthRedirectUrl(result.url);
+
+      // Verificar que la sesión se estableció correctamente en Supabase
+      const updatedSession = await supabase.auth.getSession();
+      if (!updatedSession.data?.session?.user) {
+        throw new Error("No se pudo establecer la sesión con Google. Intenta de nuevo.");
+      }
+
+      const sbUser = updatedSession.data.session.user;
+      const googleProfile: UserProfile = {
+        id: sbUser.id,
+        nombre: sbUser.user_metadata?.full_name || sbUser.email?.split("@")[0] || "Usuario Google",
+        email: sbUser.email,
+        avatar_url: sbUser.user_metadata?.avatar_url,
+        metodo_auth: "GOOGLE",
+        creado_en: sbUser.created_at || new Date().toISOString(),
+      };
+      await saveUserSession(googleProfile);
+      return googleProfile;
     } catch (err) {
       console.error("Error en signInWithGoogle:", err);
-      const fallbackGoogle: UserProfile = {
-        id: `usr-google-${Date.now()}`,
-        nombre: "Usuario Google Verificado",
-        email: "usuario.colombia@gmail.com",
-        metodo_auth: "GOOGLE",
-        creado_en: new Date().toISOString(),
-      };
-      await saveUserSession(fallbackGoogle);
-      return fallbackGoogle;
+      // Propagar el error para que AuthModal pueda mostrarlo al usuario
+      throw err;
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Registro con Celular / WhatsApp
   const signInWithPhone = async (telefono: string, nombre = "Ciudadano Verificado"): Promise<UserProfile> => {
     setIsLoading(true);
     try {
       const cleanPhone = telefono.startsWith("+57") ? telefono : `+57${telefono.replace(/\D/g, "")}`;
-      
+
+      let userId = `usr-phone-${cleanPhone.replace(/\D/g, "")}`;
+
       if (isSupabaseConfigured()) {
         try {
-          await supabase.auth.signInWithOtp({ phone: cleanPhone });
+          const { data: sessionData } = await supabase.auth.getSession();
+          if (sessionData?.session?.user) {
+            userId = sessionData.session.user.id;
+          } else {
+            const { data: anonData } = await supabase.auth.signInAnonymously();
+            if (anonData?.user) {
+              userId = anonData.user.id;
+            }
+          }
         } catch (supabaseErr) {
           console.log("SMS OTP info:", supabaseErr);
         }
       }
 
       const phoneUser: UserProfile = {
-        id: `usr-phone-${cleanPhone.replace(/\D/g, "")}`,
+        id: userId,
         nombre: nombre.trim() || "Ciudadano WhatsApp",
         telefono: cleanPhone,
         metodo_auth: "TELEFONO",
@@ -222,12 +286,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Continuar como Invitado (Modo Anónimo / Registro Rápido)
   const signInQuick = async (nombre?: string, telefono?: string): Promise<UserProfile> => {
     setIsLoading(true);
     try {
       const guestName = nombre?.trim() || "Invitado Voluntario";
-      
+
       if (isSupabaseConfigured()) {
         try {
           const { data } = await supabase.auth.signInAnonymously();

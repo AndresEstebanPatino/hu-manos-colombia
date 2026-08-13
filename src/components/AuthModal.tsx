@@ -10,8 +10,13 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useAuth } from "../context/AuthContext";
 import { COLORS } from "../constants/theme";
+
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useWindowDimensions } from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 
 interface AuthModalProps {
   visible: boolean;
@@ -19,7 +24,10 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
+  const router = useRouter();
   const { user, signInWithGoogle, signInWithPhone, signInQuick, signOut, isLoading } = useAuth();
+  const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
 
   const [mode, setMode] = useState<"OPTIONS" | "PHONE" | "QUICK">("OPTIONS");
   const [nombre, setNombre] = useState("");
@@ -30,8 +38,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
       await signInWithGoogle();
       Alert.alert("¡Sesión Iniciada!", "Te has identificado con tu cuenta de Google.");
       onClose();
-    } catch (err) {
-      Alert.alert("Error", "No se pudo iniciar sesión con Google.");
+    } catch (err: any) {
+      const msg = err?.message || "";
+      if (msg.includes("cancelado") || msg.includes("cancel")) {
+        // El usuario canceló intencionalmente — no mostrar error alarmante
+        return;
+      }
+      Alert.alert(
+        "⚠️ No se pudo iniciar sesión",
+        msg || "Ocurrió un error al conectar con Google. Verifica tu conexión e intenta de nuevo."
+      );
     }
   };
 
@@ -65,17 +81,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
 
   return (
     <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.card}>
+      <KeyboardAvoidingView
+        style={styles.overlay}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <View style={[styles.card, { paddingBottom: Math.max(insets.bottom + 20, 24) }]}>
           {/* Header */}
           <View style={styles.headerRow}>
             <View style={styles.titleWithIcon}>
-              <Ionicons name="person-circle-sharp" size={24} color={COLORS.primary} />
-              <Text style={styles.title}>Perfil e Identificación</Text>
+              <Ionicons name="shield-checkmark" size={24} color={COLORS.primary} />
+              <Text style={styles.title}>
+                {user ? "Perfil de Usuario" : "Bienvenido a Hu-Manos Colombia"}
+              </Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={22} color={COLORS.text} />
-            </TouchableOpacity>
+            {user ? (
+              <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+                <Ionicons name="close" size={22} color={COLORS.text} />
+              </TouchableOpacity>
+            ) : null}
           </View>
 
           {/* Si ya tiene sesión activa */}
@@ -93,6 +116,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
                   ? `📱 Celular: ${user.telefono}`
                   : "⚡ Perfil Rápido Activo"}
               </Text>
+
+              <TouchableOpacity
+                style={styles.myAlertsButton}
+                onPress={() => {
+                  onClose();
+                  router.push("/my-needs" as any);
+                }}
+              >
+                <Ionicons name="megaphone" size={18} color="#FFFFFF" />
+                <Text style={styles.myAlertsButtonText}>Mis Alertas Publicadas ➔</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.aboutButton}
+                onPress={() => {
+                  onClose();
+                  router.push("/acerca-de" as any);
+                }}
+              >
+                <Ionicons name="information-circle" size={18} color={COLORS.primary} />
+                <Text style={styles.aboutButtonText}>Sobre la App / Políticas ℹ️</Text>
+              </TouchableOpacity>
 
               <TouchableOpacity style={styles.signOutButton} onPress={signOut}>
                 <Ionicons name="log-out-outline" size={18} color={COLORS.primary} />
@@ -211,7 +256,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
             </View>
           )}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -279,10 +324,42 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     marginTop: 4,
   },
+  myAlertsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 16,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+  myAlertsButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  aboutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 10,
+    backgroundColor: "#F1F5F9",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  aboutButtonText: {
+    color: COLORS.text,
+    fontSize: 13.5,
+    fontWeight: "700",
+  },
   signOutButton: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 20,
+    marginTop: 12,
     backgroundColor: COLORS.primaryLight,
     paddingHorizontal: 16,
     paddingVertical: 10,

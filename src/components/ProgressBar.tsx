@@ -12,12 +12,12 @@ interface ProgressBarProps {
 export const ProgressBar: React.FC<ProgressBarProps> = ({
   current,
   total,
-  unit = "unidades",
+  unit = "ayudas",
   isCompleted = false,
 }) => {
   const percentage = Math.min(Math.round((current / Math.max(total, 1)) * 100), 100);
   const isMetaReached = current >= total;
-  const barColor = isCompleted || isMetaReached ? COLORS.secondary : percentage > 60 ? COLORS.flagYellow : COLORS.flagBlue;
+  const barColor = isCompleted || isMetaReached ? COLORS.secondary : COLORS.primary;
 
   return (
     <View style={styles.container}>
@@ -27,9 +27,9 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
         </Text>
         <Text style={[styles.percentageText, { color: barColor }]}>
           {isCompleted
-            ? "✅ Cerrada Manualmente"
+            ? "✅ Cubierta / Cerrada"
             : isMetaReached
-            ? "🎉 Personas Cubiertas (100%)"
+            ? `🎉 Meta Alcanzada (${unit})`
             : `${percentage}%`}
         </Text>
       </View>

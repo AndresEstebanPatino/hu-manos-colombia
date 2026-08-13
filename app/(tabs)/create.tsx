@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,7 +11,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar as RNStatusBar,
+  Image,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { CategoriaNecesidad, TipoNecesidad } from "../../src/types/need";
@@ -21,6 +23,64 @@ import { useNotifications } from "../../src/context/NotificationContext";
 import { useAuth } from "../../src/context/AuthContext";
 import { notifyNewNeedCreated } from "../../src/services/pushNotifications";
 import { supabase, isSupabaseConfigured } from "../../src/lib/supabase";
+import { getCurrentGPSCoordinates } from "../../src/services/locationService";
+import { LocationPickerModal } from "../../src/components/LocationPickerModal";
+import {
+  buscarDireccionOSM,
+  formatNominatimTitle,
+  NominatimPlace,
+} from "../../src/services/nominatimGeocoding";
+import {
+  compressImageForUpload,
+  SUPABASE_STORAGE_BUCKET,
+} from "../../src/services/imageCompression";
+
+/**
+ * Lógica dinámica para la unidad de medida según tipo y categoría seleccionada
+ */
+export const getDynamicUnitInfo = (tipo: TipoNecesidad, categoria: CategoriaNecesidad) => {
+  if (tipo === "VOLUNTARIO" || categoria === "MANO_DE_OBRA") {
+    return {
+      defaultUnit: "voluntarios",
+      placeholder: "Ej: voluntarios, personas, horas",
+      suggestions: ["voluntarios", "personas", "turnos", "horas"],
+    };
+  }
+
+  switch (categoria) {
+    case "BEBES_LACTANCIA":
+      return {
+        defaultUnit: "paquetes",
+        placeholder: "Ej: latas de fórmula, pañales",
+        suggestions: ["paquetes", "latas de fórmula", "pañales", "kits de aseo"],
+      };
+    case "ALIMENTOS":
+      return {
+        defaultUnit: "mercados",
+        placeholder: "Ej: mercados, botellas de agua, kilos",
+        suggestions: ["mercados", "botellas de agua", "enlatados", "kilos"],
+      };
+    case "ROPA_COBIJAS":
+      return {
+        defaultUnit: "cobijas",
+        placeholder: "Ej: cobijas, colchonetas, prendas",
+        suggestions: ["cobijas", "colchonetas", "prendas", "kits de abrigo"],
+      };
+    case "SALUD":
+      return {
+        defaultUnit: "kits de auxilio",
+        placeholder: "Ej: kits de gasas, medicamentos",
+        suggestions: ["kits de auxilio", "medicamentos", "médicos", "sueros"],
+      };
+    case "OTRO":
+    default:
+      return {
+        defaultUnit: "unidades",
+        placeholder: "Ej: herramientas, linternas, cajas",
+        suggestions: ["unidades", "paquetes", "herramientas", "kits"],
+      };
+  }
+};
 
 export default function CreateNeedScreen() {
   const router = useRouter();
@@ -35,7 +95,143 @@ export default function CreateNeedScreen() {
   const [whatsapp, setWhatsapp] = useState("");
   const [metaCantidad, setMetaCantidad] = useState("1");
   const [unidadMedida, setUnidadMedida] = useState("");
+  const [coords, setCoords] = useState<{ latitud?: number; longitud?: number } | null>(null);
+  const [loadingGPS, setLoadingGPS] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [imagenUri, setImagenUri] = useState<string | null>(null);
+  const [imagenUrl, setImagenUrl] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  // Estados para autocompletado debounced de OpenStreetMap Nominatim
+  const [osmSuggestions, setOsmSuggestions] = useState<NominatimPlace[]>([]);
+  const [loadingOsm, setLoadingOsm] = useState<boolean>(false);
+  const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
+
+  const currentUnitInfo = getDynamicUnitInfo(tipo, categoria);
+
+  // Debounce de ~800ms para autocompletado de direcciones con OpenStreetMap
+  useEffect(() => {
+    if (!ubicacion || ubicacion.trim().length < 3) {
+      setOsmSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setLoadingOsm(true);
+      try {
+        const places = await buscarDireccionOSM(ubicacion);
+        setOsmSuggestions(places);
+        setShowSuggestions(places.length > 0);
+      } catch (err) {
+        console.log("OSM autocompletado info:", err);
+      } finally {
+        setLoadingOsm(false);
+      }
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [ubicacion]);
+
+  const handleSelectOsmPlace = (place: NominatimPlace) => {
+    const formattedTitle = formatNominatimTitle(place.display_name);
+    setUbicacion(formattedTitle);
+    setCoords({
+      latitud: parseFloat(place.lat),
+      longitud: parseFloat(place.lon),
+    });
+    setShowSuggestions(false);
+    showToast("📍 Dirección Verificada (OSM)", formattedTitle, "success");
+  };
+
+  const handleConfirmMapLocation = (res: { latitud: number; longitud: number; direccion: string }) => {
+    setCoords({ latitud: res.latitud, longitud: res.longitud });
+    setUbicacion(res.direccion);
+    showToast("📍 Ubicación Seleccionada", `Dirección: ${res.direccion}`, "success");
+  };
+
+  // Actualizar automáticamente la unidad de medida cuando cambia el Tipo o la Categoría
+  useEffect(() => {
+    setUnidadMedida(currentUnitInfo.defaultUnit);
+  }, [tipo, categoria]);
+
+  const handlePickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permiso requerido", "Activa el acceso a la galería en la configuración del dispositivo.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.7,
+      });
+
+      if (!result.canceled && result.assets[0]?.uri) {
+        const rawUri = result.assets[0].uri;
+        setImagenUri(rawUri);
+        setImagenUrl(null);
+
+        // Subir a Supabase Storage (bucket: necesidades-fotos)
+        if (isSupabaseConfigured()) {
+          setUploadingImage(true);
+          try {
+            // Comprimir la imagen antes de subirla para ahorrar storage y egress
+            const compressedUri = await compressImageForUpload(rawUri);
+            const fileName = `necesidad-${Date.now()}.jpg`;
+            const response = await fetch(compressedUri);
+            const blob = await response.blob();
+
+            const { data: uploadData, error: uploadError } = await supabase.storage
+              .from(SUPABASE_STORAGE_BUCKET)
+              .upload(fileName, blob, {
+                contentType: "image/jpeg",
+                upsert: false,
+              });
+
+            if (!uploadError && uploadData) {
+              const { data: publicData } = supabase.storage
+                .from(SUPABASE_STORAGE_BUCKET)
+                .getPublicUrl(uploadData.path);
+              setImagenUrl(publicData?.publicUrl || null);
+            } else {
+              console.log("Upload info:", uploadError?.message);
+            }
+          } catch (uploadErr) {
+            console.log("Upload catch:", uploadErr);
+          } finally {
+            setUploadingImage(false);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("ImagePicker error:", err);
+    }
+  };
+
+  const handleFetchGPS = async () => {
+    setLoadingGPS(true);
+    try {
+      const res = await getCurrentGPSCoordinates();
+      if (res) {
+        setCoords({ latitud: res.latitud, longitud: res.longitud });
+        if (res.direccionAproximada && !ubicacion) {
+          setUbicacion(res.direccionAproximada);
+        }
+        showToast("📍 Ubicación GPS Capturada", `Coordenadas: ${res.latitud.toFixed(4)}, ${res.longitud.toFixed(4)}`, "success");
+      } else {
+        Alert.alert("Permiso o GPS no disponible", "Activa el GPS en tu dispositivo o navegador para ubicar la ayuda en el mapa.");
+      }
+    } catch (err) {
+      console.error("GPS error:", err);
+    } finally {
+      setLoadingGPS(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!titulo.trim() || !ubicacion.trim()) {
@@ -51,6 +247,22 @@ export default function CreateNeedScreen() {
 
     setSubmitting(true);
 
+    let finalLat = coords?.latitud;
+    let finalLng = coords?.longitud;
+
+    // Si el usuario escribió la dirección manualmente sin tocar una sugerencia ni usar GPS, intentar geocodificar con OSM
+    if (!finalLat && ubicacion.trim().length >= 3) {
+      try {
+        const places = await buscarDireccionOSM(ubicacion.trim());
+        if (places && places.length > 0) {
+          finalLat = parseFloat(places[0].lat);
+          finalLng = parseFloat(places[0].lon);
+        }
+      } catch (err) {
+        console.log("Geocodificación OSM fallback info:", err);
+      }
+    }
+
     try {
       const created = await createNeed({
         tipo,
@@ -60,47 +272,52 @@ export default function CreateNeedScreen() {
         ubicacion: ubicacion.trim(),
         contacto_whatsapp: whatsapp.trim() ? formatWhatsAppNumber(whatsapp.trim()) : "Opcional",
         meta_cantidad: cantidadNum,
-        unidad_medida: unidadMedida.trim() || (tipo === "VOLUNTARIO" ? "voluntarios" : "unidades"),
+        unidad_medida: unidadMedida.trim() || currentUnitInfo.defaultUnit,
         creador_id: user?.id || "anonimo",
+        latitud: finalLat,
+        longitud: finalLng,
+        imagen_url: imagenUrl || undefined,
       });
 
-      // Insertar explícitamente en la tabla 'notificaciones' de Supabase
-      if (isSupabaseConfigured()) {
-        try {
-          await supabase.from("notificaciones").insert([
-            {
-              titulo: "🚨 Nueva solicitud creada",
-              mensaje: `${titulo.trim()} - ${ubicacion.trim()}`,
-              tipo: "NUEVO_EVENTO",
-              necesidad_id: created.id,
-              creado_por: user?.id || "anonimo",
-            },
-          ]);
-        } catch (notifErr) {
-          console.log("Info notificación:", notifErr);
-        }
+      // Confirmar que la necesidad fue creada válidamente con ID
+      if (!created || !created.id) {
+        throw new Error("No se pudo obtener la confirmación de guardado de la necesidad.");
       }
 
-      showToast("🎉 ¡Publicado con Éxito!", `Tu solicitud "${created.titulo}" ya está visible para la comunidad.`, "success");
+      // Notificación visual de éxito SOLO tras confirmación de guardado en el servidor
+      showToast(
+        "🎉 ¡Publicado con Éxito!",
+        `Tu solicitud "${created.titulo}" ya está guardada y visible para toda la comunidad.`,
+        "success"
+      );
 
       // Disparar Notificación Push a los demás usuarios de Hu-Manos Colombia
       notifyNewNeedCreated(
         created.titulo,
         created.ubicacion,
         created.id,
-        user?.id || "anonimo"
+        created.creador_id || user?.id || "anonimo"
       );
 
-      // Limpiar formulario y volver al feed
+      // Limpiar formulario y volver al feed principal
       setTitulo("");
       setDescripcion("");
       setUbicacion("");
       setWhatsapp("");
       setMetaCantidad("1");
       setUnidadMedida("");
-      router.push("/(tabs)");
-    } catch (error) {
-      Alert.alert("Error", "No se pudo guardar la solicitud. Inténtalo de nuevo.");
+      setCoords(null);
+      setImagenUri(null);
+      setImagenUrl(null);
+
+      router.push("/");
+    } catch (err: any) {
+      console.error("❌ Error al publicar necesidad:", err);
+      Alert.alert(
+        "⚠️ No se pudo publicar la solicitud",
+        `Ocurrió un problema al guardar tu ayuda en el servidor:\n\n${err?.message || "Error de conexión o permisos en la base de datos."}\n\nPor favor intenta nuevamente. Tu información ingresada no se ha perdido.`,
+        [{ text: "Entendido", style: "default" }]
+      );
     } finally {
       setSubmitting(false);
     }
@@ -110,7 +327,7 @@ export default function CreateNeedScreen() {
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Publicar Solicitud de Ayuda</Text>
@@ -162,7 +379,7 @@ export default function CreateNeedScreen() {
               <Ionicons
                 name="people-outline"
                 size={22}
-                color={tipo === "VOLUNTARIO" ? COLORS.flagYellow : COLORS.textMuted}
+                color={tipo === "VOLUNTARIO" ? COLORS.primary : COLORS.textMuted}
               />
               <View style={{ flex: 1 }}>
                 <Text
@@ -195,7 +412,7 @@ export default function CreateNeedScreen() {
                   activeOpacity={0.8}
                   style={[
                     styles.categoryChip,
-                    isSelected && { backgroundColor: config.color, borderColor: config.color },
+                    isSelected ? styles.categoryChipSelected : styles.categoryChipUnselected,
                   ]}
                   onPress={() => setCategoria(config.key as CategoriaNecesidad)}
                 >
@@ -203,7 +420,7 @@ export default function CreateNeedScreen() {
                   <Text
                     style={[
                       styles.categoryChipText,
-                      isSelected && { color: "#FFFFFF" },
+                      isSelected ? styles.categoryChipTextSelected : styles.categoryChipTextUnselected,
                     ]}
                   >
                     {config.label}
@@ -217,14 +434,18 @@ export default function CreateNeedScreen() {
           <Text style={styles.label}>3. Título claro y conciso *</Text>
           <TextInput
             style={styles.input}
-            placeholder="Ej: Se requieren 10 cobijas térmicas para albergue temporal"
+            placeholder={
+              tipo === "VOLUNTARIO"
+                ? "Ej: Se necesitan 10 personas para despejar vía derrumbada"
+                : "Ej: Se requieren 15 cobijas térmicas y colchonetas"
+            }
             placeholderTextColor="#94A3B8"
             value={titulo}
             onChangeText={setTitulo}
             maxLength={100}
           />
 
-          {/* Meta y Unidad */}
+          {/* Meta y Unidad Dinámica */}
           <View style={styles.rowTwoInputs}>
             <View style={{ flex: 1 }}>
               <Text style={styles.label}>4. Meta requerida *</Text>
@@ -241,7 +462,7 @@ export default function CreateNeedScreen() {
               <Text style={styles.label}>5. Unidad de medida</Text>
               <TextInput
                 style={styles.input}
-                placeholder={tipo === "VOLUNTARIO" ? "voluntarios" : "unidades / mercados"}
+                placeholder={currentUnitInfo.placeholder}
                 placeholderTextColor="#94A3B8"
                 value={unidadMedida}
                 onChangeText={setUnidadMedida}
@@ -249,8 +470,67 @@ export default function CreateNeedScreen() {
             </View>
           </View>
 
-          {/* Ubicación Exacta */}
-          <Text style={styles.label}>6. Ubicación o punto de encuentro en Colombia *</Text>
+          {/* Sugerencias Rápidas de Unidades de Medida */}
+          <View style={styles.suggestionsContainer}>
+            <Text style={styles.suggestionsTitle}>Sugerencias rápidas:</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+              {currentUnitInfo.suggestions.map((suggestion) => {
+                const isSelected = unidadMedida === suggestion;
+                return (
+                  <TouchableOpacity
+                    key={suggestion}
+                    activeOpacity={0.7}
+                    onPress={() => setUnidadMedida(suggestion)}
+                    style={[
+                      styles.suggestionChip,
+                      isSelected && styles.suggestionChipSelected,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.suggestionText,
+                        isSelected && styles.suggestionTextSelected,
+                      ]}
+                    >
+                      {suggestion}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {/* Ubicación Exacta con Captura de GPS o Pin en Mapa Tipo Uber */}
+          <View style={styles.labelRowWithGPS}>
+            <Text style={styles.labelNoMargin}>6. Ubicación en Colombia *</Text>
+            <View style={{ flexDirection: "row", gap: 6 }}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                style={styles.mapPickerBtn}
+                onPress={() => setShowMapPicker(true)}
+              >
+                <Ionicons name="map-sharp" size={14} color={COLORS.primary} />
+                <Text style={styles.mapPickerBtnText}>Pin en Mapa</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.7}
+                style={[styles.gpsButton, coords?.latitud ? styles.gpsButtonSuccess : null]}
+                onPress={handleFetchGPS}
+                disabled={loadingGPS}
+              >
+                <Ionicons
+                  name={coords?.latitud ? "checkmark-circle" : "location"}
+                  size={14}
+                  color={coords?.latitud ? "#16A34A" : COLORS.primary}
+                />
+                <Text style={[styles.gpsButtonText, coords?.latitud ? styles.gpsButtonTextSuccess : undefined]}>
+                  {loadingGPS ? "GPS..." : coords?.latitud ? "GPS OK" : "Mi GPS"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
           <View style={styles.inputWithIcon}>
             <Ionicons name="location-outline" size={20} color={COLORS.primary} style={{ marginLeft: 12 }} />
             <TextInput
@@ -258,9 +538,40 @@ export default function CreateNeedScreen() {
               placeholder="Ej: Cancha Barrio Boston, Pereira (Risaralda)"
               placeholderTextColor="#94A3B8"
               value={ubicacion}
-              onChangeText={setUbicacion}
+              onChangeText={(text) => {
+                setUbicacion(text);
+                setCoords(null);
+              }}
             />
+            {loadingOsm ? (
+              <Text style={styles.osmLoadingBadge}>Buscando OSM...</Text>
+            ) : null}
           </View>
+
+          {/* Autocompletado de Sugerencias OpenStreetMap Nominatim */}
+          {showSuggestions && osmSuggestions.length > 0 ? (
+            <View style={styles.osmSuggestionsContainer}>
+              <View style={styles.osmSuggestionsHeader}>
+                <Ionicons name="map-outline" size={14} color={COLORS.primary} />
+                <Text style={styles.osmSuggestionsHeaderText}>
+                  Sugerencias OpenStreetMap (Colombia):
+                </Text>
+              </View>
+              {osmSuggestions.map((item) => (
+                <TouchableOpacity
+                  key={item.place_id}
+                  style={styles.osmSuggestionItem}
+                  activeOpacity={0.7}
+                  onPress={() => handleSelectOsmPlace(item)}
+                >
+                  <Ionicons name="location-sharp" size={16} color={COLORS.primary} />
+                  <Text style={styles.osmSuggestionText} numberOfLines={2}>
+                    {item.display_name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
 
           {/* Número de WhatsApp */}
           <Text style={styles.label}>7. Número de WhatsApp / Celular (Opcional)</Text>
@@ -289,12 +600,54 @@ export default function CreateNeedScreen() {
             textAlignVertical="top"
           />
 
+          {/* Foto Opcional del Evento / Necesidad */}
+          <Text style={styles.label}>9. Foto del lugar o recurso (Opcional)</Text>
+          <TouchableOpacity
+            style={styles.imagePickerBtn}
+            onPress={handlePickImage}
+            activeOpacity={0.8}
+            disabled={uploadingImage}
+          >
+            <Ionicons name="camera-outline" size={20} color={COLORS.primary} />
+            <Text style={styles.imagePickerText}>
+              {uploadingImage
+                ? "Subiendo imagen..."
+                : imagenUri
+                ? "Cambiar foto seleccionada"
+                : "Adjuntar foto de galería"}
+            </Text>
+            {imagenUrl ? <Ionicons name="checkmark-circle" size={18} color="#16A34A" /> : null}
+          </TouchableOpacity>
+
+          {/* Preview de la imagen seleccionada */}
+          {imagenUri ? (
+            <View style={styles.imagePreviewContainer}>
+              <Image source={{ uri: imagenUri }} style={styles.imagePreview} resizeMode="cover" />
+              <TouchableOpacity
+                style={styles.removeImageBtn}
+                onPress={() => { setImagenUri(null); setImagenUrl(null); }}
+              >
+                <Ionicons name="close-circle" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+              {imagenUrl ? (
+                <View style={styles.uploadedBadge}>
+                  <Ionicons name="cloud-done" size={12} color="#FFFFFF" />
+                  <Text style={styles.uploadedBadgeText}>Subida</Text>
+                </View>
+              ) : uploadingImage ? (
+                <View style={[styles.uploadedBadge, { backgroundColor: "#F59E0B" }]}>
+                  <Text style={styles.uploadedBadgeText}>Subiendo...</Text>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+
           {/* Botón de Publicación */}
           <TouchableOpacity
             activeOpacity={0.85}
             style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
             onPress={handleSubmit}
-            disabled={submitting}
+            disabled={submitting || uploadingImage}
           >
             <Ionicons name="paper-plane-sharp" size={20} color="#FFFFFF" />
             <Text style={styles.submitButtonText}>
@@ -303,6 +656,14 @@ export default function CreateNeedScreen() {
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Modal Interactivo de Ubicación Tipo Uber */}
+      <LocationPickerModal
+        visible={showMapPicker}
+        initialCoords={coords?.latitud && coords?.longitud ? { latitude: coords.latitud, longitude: coords.longitud } : undefined}
+        onConfirmLocation={handleConfirmMapLocation}
+        onClose={() => setShowMapPicker(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -341,6 +702,57 @@ const styles = StyleSheet.create({
     marginTop: 14,
     marginBottom: 6,
   },
+  labelNoMargin: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: COLORS.text,
+  },
+  labelRowWithGPS: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 14,
+    marginBottom: 6,
+  },
+  gpsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.primaryLight,
+    borderColor: COLORS.primary,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
+    gap: 4,
+  },
+  gpsButtonSuccess: {
+    backgroundColor: "#F0FDF4",
+    borderColor: "#BBF7D0",
+  },
+  gpsButtonText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.primary,
+  },
+  gpsButtonTextSuccess: {
+    color: "#16A34A",
+  },
+  mapPickerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.primaryLight,
+    borderColor: COLORS.primary,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
+    gap: 4,
+  },
+  mapPickerBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.primary,
+  },
   typeSelector: {
     gap: 8,
   },
@@ -359,8 +771,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primaryLight,
   },
   typeOptionSelectedVoluntario: {
-    borderColor: COLORS.flagYellow,
-    backgroundColor: COLORS.flagYellowLight,
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primaryLight,
   },
   typeOptionTitle: {
     fontSize: 14,
@@ -371,7 +783,7 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
   },
   typeOptionTitleSelectedVoluntario: {
-    color: COLORS.flagYellow,
+    color: COLORS.primary,
   },
   typeOptionDesc: {
     fontSize: 12,
@@ -385,21 +797,33 @@ const styles = StyleSheet.create({
   categoryChip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.card,
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderWidth: 1.5,
-    borderColor: COLORS.border,
     gap: 6,
+  },
+  categoryChipUnselected: {
+    backgroundColor: COLORS.neutralLight,
+    borderColor: COLORS.border,
+  },
+  categoryChipSelected: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
   categoryEmoji: {
     fontSize: 14,
   },
   categoryChipText: {
     fontSize: 13,
+  },
+  categoryChipTextUnselected: {
+    color: COLORS.neutralDark,
     fontWeight: "600",
-    color: COLORS.text,
+  },
+  categoryChipTextSelected: {
+    color: "#FFFFFF",
+    fontWeight: "700",
   },
   input: {
     backgroundColor: "#F8FAFC",
@@ -415,6 +839,36 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
   },
+  suggestionsContainer: {
+    marginTop: 6,
+  },
+  suggestionsTitle: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: COLORS.textMuted,
+    marginBottom: 4,
+  },
+  suggestionChip: {
+    backgroundColor: "#F1F5F9",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  suggestionChipSelected: {
+    backgroundColor: COLORS.primaryLight,
+    borderColor: COLORS.primary,
+  },
+  suggestionText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: COLORS.textMuted,
+  },
+  suggestionTextSelected: {
+    color: COLORS.primary,
+    fontWeight: "700",
+  },
   inputWithIcon: {
     flexDirection: "row",
     alignItems: "center",
@@ -429,6 +883,54 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 14,
     color: COLORS.text,
+  },
+  osmLoadingBadge: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: COLORS.primary,
+    paddingRight: 10,
+  },
+  osmSuggestionsContainer: {
+    backgroundColor: "#FFFFFF",
+    borderColor: COLORS.primary,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    marginTop: 4,
+    marginBottom: 8,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  osmSuggestionsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.primaryLight,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    gap: 6,
+  },
+  osmSuggestionsHeaderText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: COLORS.primary,
+  },
+  osmSuggestionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    gap: 8,
+  },
+  osmSuggestionText: {
+    flex: 1,
+    fontSize: 12,
+    color: COLORS.text,
+    lineHeight: 16,
   },
   textArea: {
     height: 90,
@@ -456,5 +958,58 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "800",
+  },
+  imagePickerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderColor: COLORS.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 10,
+    backgroundColor: COLORS.primaryLight,
+  },
+  imagePickerText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.primary,
+  },
+  imagePreviewContainer: {
+    marginTop: 10,
+    borderRadius: 14,
+    overflow: "hidden",
+    position: "relative",
+  },
+  imagePreview: {
+    width: "100%",
+    height: 180,
+    borderRadius: 14,
+  },
+  removeImageBtn: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    borderRadius: 12,
+  },
+  uploadedBadge: {
+    position: "absolute",
+    bottom: 8,
+    left: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#16A34A",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  uploadedBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#FFFFFF",
   },
 });

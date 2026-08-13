@@ -10,8 +10,12 @@ import {
   Platform,
   StatusBar as RNStatusBar,
 } from "react-native";
+import { useWindowDimensions } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "../../src/constants/theme";
+
+import { useRouter } from "expo-router";
 
 export interface EmergencyLine {
   id: string;
@@ -74,6 +78,11 @@ export const OFFICIAL_EMERGENCY_LINES: EmergencyLine[] = [
 ];
 
 export default function EmergencyScreen() {
+  const router = useRouter();
+  const { width: windowWidth } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const isSmallScreen = windowWidth < 380;
+
   const hacerLlamada = (numero: string) => {
     Linking.openURL(`tel:${numero}`).catch((err) =>
       console.error("No se pudo iniciar la llamada:", err)
@@ -92,7 +101,7 @@ export default function EmergencyScreen() {
         </Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom + 20, 40) }]}>
         {OFFICIAL_EMERGENCY_LINES.map((item) => (
           <TouchableOpacity
             key={item.id}
@@ -134,6 +143,30 @@ export default function EmergencyScreen() {
             </Text>
           </View>
         </View>
+
+        {/* Botón a Políticas y Sobre Hu-Mano Colombia */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: "#F1F5F9",
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderRadius: 14,
+            borderWidth: 1,
+            borderColor: COLORS.border,
+            gap: 8,
+            marginTop: 4,
+          }}
+          onPress={() => router.push("/acerca-de" as any)}
+        >
+          <Ionicons name="shield-checkmark" size={18} color={COLORS.primary} />
+          <Text style={{ fontSize: 13.5, fontWeight: "700", color: COLORS.text }}>
+            Ver Políticas de Uso y Sobre Hu-Mano Colombia 🤝
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );

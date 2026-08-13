@@ -51,6 +51,8 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
     alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   emoji: {
     fontSize: 12,
@@ -58,7 +60,7 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   typeBadge: {
     paddingHorizontal: 8,
@@ -67,21 +69,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   resourceBadge: {
-    backgroundColor: COLORS.accentBlueLight,
-    borderColor: COLORS.accentBlue,
+    backgroundColor: COLORS.primaryLight,
+    borderColor: "#BFDBFE",
   },
   volunteerBadge: {
-    backgroundColor: COLORS.accentAmberLight,
-    borderColor: COLORS.accentAmber,
+    backgroundColor: COLORS.neutralLight,
+    borderColor: COLORS.border,
   },
   typeBadgeText: {
     fontSize: 11,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   resourceText: {
-    color: COLORS.accentBlue,
+    color: COLORS.primary,
   },
   volunteerText: {
-    color: "#B45309",
+    color: COLORS.neutralDark,
   },
 });
+

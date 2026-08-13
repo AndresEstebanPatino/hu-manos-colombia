@@ -5,6 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NotificationProvider } from "../src/context/NotificationContext";
 import { AuthProvider } from "../src/context/AuthContext";
+import { ErrorBoundary } from "../src/components/ErrorBoundary";
 import { COLORS } from "../src/constants/theme";
 
 export default function RootLayout() {
@@ -30,24 +31,26 @@ export default function RootLayout() {
   }, [router]);
 
   return (
-    <SafeAreaProvider>
-      <AuthProvider>
-        <NotificationProvider>
-          <StatusBar style="dark" backgroundColor="#FFFFFF" />
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen
-              name="detail/[id]"
-              options={{
-                headerShown: true,
-                title: "Detalle de Solicitud",
-                headerBackTitle: "Atrás",
-                headerTintColor: COLORS.primary,
-              }}
-            />
-          </Stack>
-        </NotificationProvider>
-      </AuthProvider>
-    </SafeAreaProvider>
+    <ErrorBoundary>
+      <SafeAreaProvider>
+        <AuthProvider>
+          <NotificationProvider>
+            <StatusBar style="dark" backgroundColor="#FFFFFF" />
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen
+                name="detail/[id]"
+                options={{
+                  headerShown: true,
+                  title: "Detalle de Solicitud",
+                  headerBackTitle: "Atrás",
+                  headerTintColor: COLORS.primary,
+                }}
+              />
+            </Stack>
+          </NotificationProvider>
+        </AuthProvider>
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }

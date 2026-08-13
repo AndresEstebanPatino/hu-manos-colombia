@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "Hu-Manos Colombia",
-    "slug": "hu-mano-colombia",
+    "name": "Hu-Mano Colombia",
+    "slug": "hu-manos-colombia",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "hu-mano-colombia",
+    "scheme": "humanocolombia",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
