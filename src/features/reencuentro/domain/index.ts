@@ -7,4 +7,5 @@ export * from "./validation";
 export * from "./busqueda";
 export * from "./acciones";
 export * from "./onboarding";
+export * from "./geolocalizacion";
 export * from "./mocks";
