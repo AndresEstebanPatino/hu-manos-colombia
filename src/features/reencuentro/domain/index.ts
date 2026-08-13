@@ -6,4 +6,5 @@ export * from "./state-machines";
 export * from "./validation";
 export * from "./busqueda";
 export * from "./acciones";
+export * from "./onboarding";
 export * from "./mocks";
