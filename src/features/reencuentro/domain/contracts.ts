@@ -69,3 +69,9 @@ export interface MatchBoardService {
   /** El coordinador rechaza una coincidencia (con motivo). */
   rechazar(id: string, motivo: string): Promise<void>;
 }
+
+/** Consulta de reportes para la lista/buscador público. */
+export interface ReportsQueryPort {
+  /** BUSCADA de no-menores en estado ACTIVO (lista pública). */
+  listarBuscadasPublicas(): Promise<ReportePersona[]>;
+}
