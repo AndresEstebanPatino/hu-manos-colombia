@@ -4,4 +4,5 @@ export * from "./roles";
 export * from "./contracts";
 export * from "./state-machines";
 export * from "./validation";
+export * from "./busqueda";
 export * from "./mocks";

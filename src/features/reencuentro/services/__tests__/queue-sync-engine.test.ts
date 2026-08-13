@@ -27,6 +27,8 @@ describe("QueueSyncEngine", () => {
 
     expect(res.sincronizados).toEqual(["a"]);
     expect((await repo.getById("a"))?.syncState).toBe("SINCRONIZADO");
+    // Al sincronizar, un reporte capturado pasa a ACTIVO (disponible para cruce/lista).
+    expect((await repo.getById("a"))?.estado).toBe("ACTIVO");
   });
 
   it("es idempotente: re-sincronizar no vuelve a subir lo ya sincronizado", async () => {
