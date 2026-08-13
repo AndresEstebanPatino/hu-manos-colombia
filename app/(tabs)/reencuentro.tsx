@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
-import { SafeAreaView, StyleSheet } from "react-native";
+import { SafeAreaView, View, Text, Pressable, StyleSheet } from "react-native";
+import { Link } from "expo-router";
 import { FormularioCaptura } from "../../src/features/reencuentro/ui/FormularioCaptura";
 import { crearCaptureService } from "../../src/features/reencuentro/services/capture-service";
 import { iniciarAutoSync } from "../../src/features/reencuentro/services/auto-sync";
@@ -18,6 +19,13 @@ export default function ReencuentroTab() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <View style={styles.linkRow}>
+        <Link href="/reencuentro/lista" asChild>
+          <Pressable style={styles.linkBtn} accessibilityRole="button">
+            <Text style={styles.linkTxt}>🔎 Ver personas buscadas</Text>
+          </Pressable>
+        </Link>
+      </View>
       <FormularioCaptura creadoPorId={user?.id ?? "anonimo"} onCrear={service.crear} />
     </SafeAreaView>
   );
@@ -25,4 +33,14 @@ export default function ReencuentroTab() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.background },
+  linkRow: { paddingHorizontal: 16, paddingTop: 12 },
+  linkBtn: {
+    backgroundColor: COLORS.primaryLight,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  linkTxt: { color: COLORS.primary, fontWeight: "700" },
 });
