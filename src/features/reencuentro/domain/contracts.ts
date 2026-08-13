@@ -1,7 +1,7 @@
 // Contratos (interfaces) entre front y back. Permiten paralelizar contra mocks.
 // Las implementaciones reales viven en services/ (front) y supabase/ (back).
 
-import { ReportePersona, SyncState } from "./types";
+import { ReportePersona, SyncState, Coincidencia } from "./types";
 
 export interface ReportRepository {
   /** Crea un reporte en almacenamiento local. */
@@ -47,4 +47,16 @@ export interface SyncEngine {
 export interface RemoteReportGateway {
   /** Upsert idempotente de un reporte en el servidor. Puede rechazar (error de red). */
   upsert(reporte: ReportePersona): Promise<void>;
+}
+
+/** Puerto del tablero del coordinador (human-in-the-loop). */
+export interface MatchBoardService {
+  /** Coincidencias pendientes de revisar (SUGERIDA / EN_REVISION / INFO_INSUFICIENTE). */
+  listar(): Promise<Coincidencia[]>;
+  /** Dispara el motor de matching (RPC). Devuelve cuántas coincidencias tocó. */
+  generar(): Promise<number>;
+  /** El coordinador confirma una coincidencia. */
+  confirmar(id: string): Promise<void>;
+  /** El coordinador rechaza una coincidencia (con motivo). */
+  rechazar(id: string, motivo: string): Promise<void>;
 }
