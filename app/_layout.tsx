@@ -45,6 +45,15 @@ export default function RootLayout() {
                 headerTintColor: COLORS.primary,
               }}
             />
+            <Stack.Screen
+              name="reencuentro/lista"
+              options={{
+                headerShown: true,
+                title: "Personas buscadas",
+                headerBackTitle: "Atrás",
+                headerTintColor: COLORS.primary,
+              }}
+            />
           </Stack>
         </NotificationProvider>
       </AuthProvider>

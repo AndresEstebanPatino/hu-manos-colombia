@@ -58,8 +58,6 @@ export function PantallaLista({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.titulo}>Personas buscadas</Text>
-
       <TextInput
         style={styles.buscador}
         placeholder="Buscar por nombre, ubicación o señas…"
