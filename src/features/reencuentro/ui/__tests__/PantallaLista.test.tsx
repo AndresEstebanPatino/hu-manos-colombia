@@ -59,4 +59,39 @@ describe("PantallaLista", () => {
     render(<PantallaLista query={fakeQuery([])} abrirUrl={jest.fn()} />);
     await waitFor(() => expect(screen.getByText(/No hay personas/i)).toBeTruthy());
   });
+
+  it("muestra 'La vi' cuando hay handler de avistamiento", async () => {
+    render(
+      <PantallaLista query={fakeQuery([reporte({ id: "a", nombre: "Ana" })])} onAvistamiento={jest.fn()} />
+    );
+    await waitFor(() => expect(screen.getByText("Ana")).toBeTruthy());
+    expect(screen.getByTestId("avistar-a")).toBeTruthy();
+  });
+
+  it("muestra 'Marcar encontrada' con mutation + autorización de coordinador", async () => {
+    const mutation = { marcarResuelto: jest.fn().mockResolvedValue(undefined) };
+    render(
+      <PantallaLista
+        query={fakeQuery([reporte({ id: "a", nombre: "Ana" })])}
+        mutation={mutation}
+        roles={["COORDINADOR"]}
+      />
+    );
+    await waitFor(() => expect(screen.getByText("Ana")).toBeTruthy());
+    expect(screen.getByTestId("resolver-a")).toBeTruthy();
+  });
+
+  it("oculta 'Marcar encontrada' a un anónimo no autorizado", async () => {
+    const mutation = { marcarResuelto: jest.fn() };
+    render(
+      <PantallaLista
+        query={fakeQuery([reporte({ id: "a", nombre: "Ana", creadoPorId: "otro" })])}
+        mutation={mutation}
+        actorId={null}
+        roles={[]}
+      />
+    );
+    await waitFor(() => expect(screen.getByText("Ana")).toBeTruthy());
+    expect(screen.queryByTestId("resolver-a")).toBeNull();
+  });
 });
