@@ -55,12 +55,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="create"
         options={{
-          title: "+ Crear",
-          tabBarIcon: ({ focused }) => (
-            <View style={styles.createTabBadge}>
-              <Ionicons name="add" size={26} color="#FFFFFF" />
-            </View>
-          ),
+          href: null,
         }}
       />
       <Tabs.Screen

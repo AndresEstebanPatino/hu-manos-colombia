@@ -346,6 +346,16 @@ export default function FeedScreen() {
         )}
 
 
+        {/* Botón Flotante (FAB) elevado para publicar sin saturar el Navbar inferior */}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          style={styles.fab}
+          onPress={() => router.push("/create")}
+        >
+          <Ionicons name="add" size={24} color="#FFFFFF" />
+          <Text style={styles.fabText}>Publicar</Text>
+        </TouchableOpacity>
+
         {/* Modal de Registro / Inicio de Sesión Obligatorio al abrir por primera vez */}
         <AuthModal
           visible={showAuthInitial || !user}
@@ -506,7 +516,7 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: "absolute",
-    bottom: 20,
+    bottom: 28,
     right: 20,
     flexDirection: "row",
     alignItems: "center",
@@ -515,11 +525,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 30,
     gap: 6,
-    shadowColor: COLORS.primary,
+    shadowColor: "#000000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.35,
     shadowRadius: 6,
-    elevation: 6,
+    elevation: 8,
+    zIndex: 99,
   },
   fabText: {
     color: "#FFFFFF",
