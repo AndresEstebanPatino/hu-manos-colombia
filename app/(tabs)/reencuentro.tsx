@@ -25,6 +25,11 @@ export default function ReencuentroTab() {
             <Text style={styles.linkTxt}>🔎 Ver personas buscadas</Text>
           </Pressable>
         </Link>
+        <Link href="/reencuentro/registro" asChild>
+          <Pressable style={styles.linkBtnAlt} accessibilityRole="button">
+            <Text style={styles.linkTxtAlt}>🧭 Registrarse como coordinador de zona</Text>
+          </Pressable>
+        </Link>
       </View>
       <FormularioCaptura creadoPorId={user?.id ?? "anonimo"} onCrear={service.crear} />
     </SafeAreaView>
@@ -33,7 +38,7 @@ export default function ReencuentroTab() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.background },
-  linkRow: { paddingHorizontal: 16, paddingTop: 12 },
+  linkRow: { paddingHorizontal: 16, paddingTop: 12, gap: 8 },
   linkBtn: {
     backgroundColor: COLORS.primaryLight,
     borderWidth: 1,
@@ -43,4 +48,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   linkTxt: { color: COLORS.primary, fontWeight: "700" },
+  linkBtnAlt: {
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  linkTxtAlt: { color: COLORS.text, fontWeight: "700" },
 });

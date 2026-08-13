@@ -54,6 +54,15 @@ export default function RootLayout() {
                 headerTintColor: COLORS.primary,
               }}
             />
+            <Stack.Screen
+              name="reencuentro/registro"
+              options={{
+                headerShown: true,
+                title: "Registro de coordinador",
+                headerBackTitle: "Atrás",
+                headerTintColor: COLORS.primary,
+              }}
+            />
           </Stack>
         </NotificationProvider>
       </AuthProvider>
