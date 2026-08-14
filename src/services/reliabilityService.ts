@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
+import { ContribucionLogistica, ContribucionDetalle } from "../types/need";
 
 export interface UserReliabilityProfile {
   id: string;
@@ -242,22 +243,22 @@ export const obtenerPerfilConfiabilidad = async (
 };
 
 /**
- * Registra una contribución confirmada e incrementa progreso_actual usando la función RPC atómica
+ * Registra una contribución e incrementa progreso_actual usando la función RPC atómica.
+ * Si el RPC no está disponible, hace INSERT directo a contribuciones como fallback.
  */
 export const registrarContribucionAtomic = async (
   necesidadId: string,
   userId: string,
   cantidadAportada = 1
-): Promise<{ success: boolean; nuevoProgreso?: number; completado?: boolean }> => {
+): Promise<{ success: boolean; nuevoProgreso?: number; completado?: boolean; accion?: string }> => {
   if (!isSupabaseConfigured()) {
     return { success: true, nuevoProgreso: 1, completado: false };
   }
 
   try {
-    // 1. Intentar llamar a la función RPC atómica de Supabase
+    // Llamar a la RPC atómica (creada por la migración 20260814000001)
     const { data, error } = await supabase.rpc("registrar_contribucion", {
       p_necesidad_id: necesidadId,
-      p_usuario_id: userId,
       p_cantidad_aportada: cantidadAportada,
     });
 
@@ -266,11 +267,17 @@ export const registrarContribucionAtomic = async (
         success: true,
         nuevoProgreso: data.progreso_actual,
         completado: data.completado,
+        accion: data.accion,
       };
     }
 
-    // 2. Fallback si el RPC no existe aún en la BD
-    await supabase.from("contribuciones").insert([
+    if (error) {
+      // Si el RPC no existe aún (404), intentar INSERT directo como fallback de emergencia
+      console.warn("RPC registrar_contribucion no disponible, usando fallback:", error.message);
+    }
+
+    // Fallback: INSERT directo a contribuciones
+    const { error: insertError } = await supabase.from("contribuciones").insert([
       {
         necesidad_id: necesidadId,
         usuario_id: userId,
@@ -279,9 +286,81 @@ export const registrarContribucionAtomic = async (
       },
     ]);
 
+    if (insertError) {
+      console.warn("Insert directo a contribuciones falló:", insertError.message);
+      return { success: false };
+    }
+
     return { success: true };
   } catch (err) {
     console.error("Error en registrarContribucionAtomic:", err);
     return { success: false };
+  }
+};
+
+/**
+ * Actualiza los campos opcionales de logística (tipo_entrega, ubicacion_contacto, notas_logistica)
+ * para una contribución existente en Supabase.
+ */
+export const guardarLogisticaContribucion = async (
+  necesidadId: string,
+  userId: string,
+  logistica: ContribucionLogistica
+): Promise<boolean> => {
+  if (!isSupabaseConfigured() || !userId || !necesidadId) return false;
+
+  try {
+    const updatePayload: Record<string, any> = {};
+    if (logistica.tipo_entrega) updatePayload.tipo_entrega = logistica.tipo_entrega;
+    if (logistica.ubicacion_contacto) updatePayload.ubicacion_contacto = logistica.ubicacion_contacto;
+    if (typeof logistica.latitud === "number") updatePayload.latitud = logistica.latitud;
+    if (typeof logistica.longitud === "number") updatePayload.longitud = logistica.longitud;
+    if (logistica.notas_logistica) updatePayload.notas_logistica = logistica.notas_logistica;
+
+    if (Object.keys(updatePayload).length === 0) return true;
+
+    const { error } = await supabase
+      .from("contribuciones")
+      .update(updatePayload)
+      .eq("necesidad_id", necesidadId)
+      .eq("usuario_id", userId);
+
+    if (error) {
+      console.warn("Info al guardar logística de contribución:", error.message);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.warn("Excepción al guardar logística de contribución:", err);
+    return false;
+  }
+};
+
+/**
+ * Obtiene la lista de contribuciones con detalles de logística asociadas a una necesidad.
+ * Permitido solo para el creador de la necesidad por políticas RLS.
+ */
+export const obtenerContribucionesConLogistica = async (
+  necesidadId: string
+): Promise<ContribucionDetalle[]> => {
+  if (!isSupabaseConfigured() || !necesidadId) return [];
+
+  try {
+    const { data, error } = await supabase
+      .from("contribuciones")
+      .select("*")
+      .eq("necesidad_id", necesidadId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.warn("Info al consultar contribuciones con logística:", error.message);
+      return [];
+    }
+
+    return (data || []) as ContribucionDetalle[];
+  } catch (err) {
+    console.warn("Error al consultar contribuciones con logística:", err);
+    return [];
   }
 };

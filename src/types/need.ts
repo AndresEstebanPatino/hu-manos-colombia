@@ -54,3 +54,26 @@ export interface UserProfile {
   creado_en: string;
   verificado?: boolean;
 }
+
+export type TipoEntrega = "RECOGE" | "NECESITA_ENTREGA" | "SE_ENCUENTRAN";
+
+export interface ContribucionLogistica {
+  tipo_entrega?: TipoEntrega;
+  ubicacion_contacto?: string;
+  latitud?: number;
+  longitud?: number;
+  notas_logistica?: string;
+}
+
+export interface ContribucionDetalle extends ContribucionLogistica {
+  id: string;
+  necesidad_id: string;
+  usuario_id: string;
+  cantidad_aportada: number;
+  confirmado: boolean;
+  created_at: string;
+  perfil_usuario?: {
+    full_name?: string;
+    avatar_url?: string;
+  };
+}

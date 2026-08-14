@@ -15,6 +15,8 @@ export interface CommunityActivity {
   type: ToastType;
   timestamp: string;
   creado_por?: string;
+  necesidad_id?: string;
+  tipo_evento?: string;
 }
 
 interface NotificationContextProps {
@@ -116,11 +118,13 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           id: item.id || `notif-${Math.random()}`,
           title: item.titulo || "🚨 Nueva solicitud",
           message: item.mensaje || "Publicada en Colombia",
-          type: item.tipo === "NUEVO_EVENTO" ? "alert" : "info",
+          type: item.tipo === "CONTRIBUCION" ? "success" : item.tipo === "NUEVO_EVENTO" ? "alert" : "info",
           timestamp: item.creado_en
             ? new Date(item.creado_en).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
             : "Reciente",
           creado_por: item.creado_por,
+          necesidad_id: item.necesidad_id || undefined,
+          tipo_evento: item.tipo || undefined,
         }));
         setActivityLog(mapped);
 
@@ -158,6 +162,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             ? new Date(item.creado_en).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
             : "Reciente",
           creado_por: item.creador_id,
+          necesidad_id: item.id,
+          tipo_evento: "NUEVO_EVENTO",
         }));
         setActivityLog(mappedFromNeeds);
       }
@@ -206,9 +212,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                   id: newNotif.id || `notif-${Date.now()}`,
                   title: newNotif.titulo || "🚨 Nueva solicitud",
                   message: newNotif.mensaje || "Publicada en la comunidad",
-                  type: newNotif.tipo === "NUEVO_EVENTO" ? "alert" : "info",
+                  type: newNotif.tipo === "CONTRIBUCION" ? "success" : "alert",
                   timestamp: new Date(newNotif.creado_en || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
                   creado_por: newNotif.creado_por,
+                  necesidad_id: newNotif.necesidad_id || undefined,
+                  tipo_evento: newNotif.tipo || undefined,
                 };
 
                 setActivityLog((prev) => [newActivity, ...prev.filter((item) => item.id !== newActivity.id)]);
@@ -218,30 +226,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
                 // Banner flotante para los demás usuarios
                 if (!user?.id || newNotif.creado_por !== user.id) {
-                  showToast(newActivity.title, newActivity.message, "alert");
-                }
-              }
-            }
-          )
-          .on(
-            "postgres_changes",
-            { event: "*", schema: "public", table: "necesidades" },
-            (payload) => {
-              if (payload.eventType === "INSERT") {
-                const newNeed = payload.new as any;
-                const newActivity: CommunityActivity = {
-                  id: `need-notif-${newNeed.id}`,
-                  title: "🚨 Nueva solicitud creada",
-                  message: `${newNeed.titulo} en ${newNeed.ubicacion}`,
-                  type: "alert",
-                  timestamp: new Date(newNeed.creado_en || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-                  creado_por: newNeed.creador_id,
-                };
-
-                setActivityLog((prev) => [newActivity, ...prev.filter((item) => item.id !== newActivity.id)]);
-                setUnreadCount((prev) => prev + 1);
-
-                if (!user?.id || newNeed.creador_id !== user.id) {
                   showToast(newActivity.title, newActivity.message, "alert");
                 }
               }

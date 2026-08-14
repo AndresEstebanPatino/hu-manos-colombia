@@ -30,7 +30,7 @@ export default function ReencuentroTab() {
             <Text style={styles.linkTxt}>🔎 Ver personas buscadas</Text>
           </Pressable>
         </Link>
-        <Link href="/reencuentro/mapa" asChild>
+        <Link href={"/reencuentro/mapa" as any} asChild>
           <Pressable style={styles.linkBtn} accessibilityRole="button">
             <Text style={styles.linkTxt}>🗺️ Mapa de personas y servicios</Text>
           </Pressable>

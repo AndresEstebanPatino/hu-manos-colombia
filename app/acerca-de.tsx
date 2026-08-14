@@ -64,7 +64,7 @@ export default function AcercaDeScreen() {
         <View style={styles.heroCard}>
           <Text style={styles.heroTitle}>🤝 Sobre Hu-Manos Colombia</Text>
           <Text style={styles.heroBody}>
-            Hu-Manos Colombia nació en medio de una emergencia, en cuestión de días, con el único propósito de ayudar a conectar a quienes necesitan apoyo con quienes pueden darlo. La hice yo solo, como desarrollador, motivado por el deseo de aportar con lo que sé hacer.
+            Hu-Manos Colombia nació en medio de una emergencia, en cuestión de días, con el único propósito de ayudar a conectar a quienes necesitan apoyo con quienes pueden darlo. La creamos entre dos desarrolladores, motivados por el deseo de aportar con lo que sabemos hacer.
           </Text>
           <Text style={styles.heroSubText}>Por eso es importante que sepas:</Text>
         </View>
@@ -125,6 +125,75 @@ export default function AcercaDeScreen() {
           <Text style={styles.cardBodyText}>
             Usa el botón de "Reportar" dentro de cada solicitud si te parece una posible estafa. Toda cuenta o publicación reportada será revisada, y quien use esta app para hacer daño será eliminado de la plataforma.
           </Text>
+        </View>
+
+        {/* Sección: Sobre la Búsqueda de Personas con Reconocimiento Facial (IA) (Tratamiento Morado / Serio) */}
+        <View style={styles.aiPrivacyCard}>
+          <View style={styles.cardHeaderRow}>
+            <Text style={styles.emojiIcon}>🔍</Text>
+            <Text style={styles.aiPrivacyTitle}>
+              Sobre la Búsqueda de Personas con Reconocimiento Facial (IA)
+            </Text>
+          </View>
+          <Text style={styles.aiPrivacyIntro}>
+            Esta función usa inteligencia artificial para comparar fotos y ayudar a reencontrar personas separadas durante la emergencia. Por tratarse de datos muy sensibles, es importante que sepas:
+          </Text>
+
+          {/* Subsección 1 */}
+          <View style={styles.aiSubSection}>
+            <Text style={styles.aiSubTitle}>⚠️ Solo sube fotos con autorización real</Text>
+            <Text style={styles.cardBodyText}>
+              Solo debes subir la foto de una persona si eres tú, un familiar directo, o tienes autorización de quien la representa (padre, madre, tutor legal). No subas fotos de personas sin su conocimiento o consentimiento, salvo en el caso de reportar a alguien desaparecido con fines humanitarios legítimos.
+            </Text>
+          </View>
+
+          {/* Subsección 2 */}
+          <View style={styles.aiSubSection}>
+            <Text style={styles.aiSubTitle}>👶 Menores de edad — protección especial</Text>
+            <Text style={styles.cardBodyText}>
+              Si estás buscando o reportando a un niño, niña o adolescente, además de usar esta función, <Text style={styles.aiBoldText}>DEBES</Text> reportarlo a las autoridades correspondientes: ICBF (Instituto Colombiano de Bienestar Familiar) y la Fiscalía General de la Nación. Esta app es una herramienta de apoyo, NUNCA un sustituto del proceso oficial de búsqueda de menores.
+            </Text>
+          </View>
+
+          {/* Subsección 3 */}
+          <View style={styles.aiSubSection}>
+            <Text style={styles.aiSubTitle}>🤖 La IA puede equivocarse</Text>
+            <Text style={styles.cardBodyText}>
+              Un "posible match" generado por inteligencia artificial NO es una identificación confirmada. Siempre verifica la coincidencia en persona o por videollamada antes de asumir que se trata de la persona correcta, y confirma también a través de canales oficiales (Cruz Roja, Defensa Civil, línea 123).
+            </Text>
+          </View>
+
+          {/* Subsección 4 */}
+          <View style={styles.aiSubSection}>
+            <Text style={styles.aiSubTitle}>🔒 Qué hacemos con las fotos</Text>
+            <View style={styles.bulletList}>
+              <Text style={styles.bulletItem}>
+                • Las fotos subidas se usan ÚNICAMENTE para la comparación de reencuentro, no se usan con ningún otro fin.
+              </Text>
+              <Text style={styles.bulletItem}>
+                • No se venden ni se comparten con terceros ni con fines comerciales.
+              </Text>
+              <Text style={styles.bulletItem}>
+                • Solo las personas directamente relacionadas con una coincidencia encontrada pueden ver los datos de contacto asociados.
+              </Text>
+            </View>
+          </View>
+
+          {/* Subsección 5 */}
+          <View style={styles.aiSubSection}>
+            <Text style={styles.aiSubTitle}>🛠️ Función en construcción</Text>
+            <Text style={styles.cardBodyText}>
+              Esta herramienta tiene ya lo básico funcionando, pero seguimos desarrollando funcionalidades adicionales (como la opción de solicitar la eliminación de una foto directamente desde la app). Mientras tanto, si necesitas que eliminemos una foto o tienes cualquier duda sobre el uso de tus datos en esta función, escríbenos directamente:
+            </Text>
+            <TouchableOpacity
+              style={styles.aiEmailButton}
+              onPress={handleOpenEmail}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="mail" size={16} color="#FFFFFF" />
+              <Text style={styles.aiEmailButtonText}>andresp199519@gmail.com</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Sección: Sobre tu información */}
@@ -372,5 +441,59 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     color: COLORS.primary,
     textAlign: "center",
+  },
+  // Sección IA / Reconocimiento Facial (Tratamiento serio / Morado)
+  aiPrivacyCard: {
+    backgroundColor: "#F5F3FF",
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: "#DDD6FE",
+    gap: 12,
+  },
+  aiPrivacyTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#4C1D95",
+    flex: 1,
+  },
+  aiPrivacyIntro: {
+    fontSize: 13.5,
+    lineHeight: 20,
+    color: "#3730A3",
+    fontWeight: "500",
+    marginBottom: 2,
+  },
+  aiSubSection: {
+    gap: 6,
+    borderTopWidth: 1,
+    borderTopColor: "#EDE9FE",
+    paddingTop: 10,
+  },
+  aiSubTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#5B21B6",
+  },
+  aiBoldText: {
+    fontWeight: "800",
+    color: "#4C1D95",
+  },
+  aiEmailButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#6D28D9",
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    marginTop: 6,
+    gap: 6,
+    alignSelf: "flex-start",
+  },
+  aiEmailButtonText: {
+    fontSize: 13.5,
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
 });
