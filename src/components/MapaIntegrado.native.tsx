@@ -4,10 +4,15 @@ import { WebView } from "react-native-webview";
 import { useRouter } from "expo-router";
 import { Necesidad, CategoriaNecesidad } from "../types/need";
 import { CATEGORY_CONFIGS } from "../constants/theme";
+import { PersonaMarker } from "./MapaIntegrado.types";
 
 interface MapaIntegradoProps {
   needs: Necesidad[];
   onSelectNeed?: (needId: string) => void;
+  /** Marcadores de personas (módulo reencuentro). Opcional y aditivo. */
+  personas?: PersonaMarker[];
+  /** Al tocar "Ver ficha" en un marcador de persona. */
+  onSelectPersona?: (personaId: string) => void;
 }
 
 // Coordenadas fijas por defecto garantizadas para Colombia (Pereira / Eje Cafetero)
@@ -82,10 +87,13 @@ const generateLeafletHTML = (markers: Array<{
   titulo: string;
   ubicacion: string;
   progreso: string;
+  kind?: string;
 }>) => {
   const markersJS = markers
-    .map(
-      (m) => `
+    .map((m) => {
+      const tipoMsg = m.kind === "persona" ? "openPersona" : "openDetail";
+      const btnLabel = m.kind === "persona" ? "Ver ficha ➔" : "Ver solicitud ➔";
+      return `
     (function() {
       var icon = L.divIcon({
         className: 'custom-marker',
@@ -100,13 +108,13 @@ const generateLeafletHTML = (markers: Array<{
           '<div style="font-weight:800;font-size:13px;color:#0F172A;margin-bottom:4px;">${m.emoji} ${m.titulo.replace(/'/g, "\\'").replace(/"/g, "&quot;")}</div>' +
           '<div style="font-size:11px;color:#1E40AF;font-weight:700;margin-bottom:4px;">📍 ${m.ubicacion.replace(/'/g, "\\'").replace(/"/g, "&quot;")}</div>' +
           '<div style="font-size:11px;color:#64748B;margin-bottom:8px;">${m.progreso.replace(/'/g, "\\'").replace(/"/g, "&quot;")}</div>' +
-          '<div onclick="window.ReactNativeWebView.postMessage(JSON.stringify({type:\\'openDetail\\',id:\\'${m.id}\\'}))" ' +
+          '<div onclick="window.ReactNativeWebView.postMessage(JSON.stringify({type:\\'${tipoMsg}\\',id:\\'${m.id}\\'}))" ' +
             'style="background:#1E40AF;color:#FFF;text-align:center;padding:6px 0;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">' +
-            'Ver solicitud ➔</div>' +
+            '${btnLabel}</div>' +
         '</div>'
       );
-    })();`
-    )
+    })();`;
+    })
     .join("\n");
 
   return `<!DOCTYPE html>
@@ -148,7 +156,12 @@ const generateLeafletHTML = (markers: Array<{
 </html>`;
 };
 
-export const MapaIntegrado: React.FC<MapaIntegradoProps> = ({ needs = [], onSelectNeed }) => {
+export const MapaIntegrado: React.FC<MapaIntegradoProps> = ({
+  needs = [],
+  onSelectNeed,
+  personas = [],
+  onSelectPersona,
+}) => {
   const router = useRouter();
   const webViewRef = useRef<WebView>(null);
 
@@ -182,13 +195,29 @@ export const MapaIntegrado: React.FC<MapaIntegradoProps> = ({ needs = [], onSele
       };
     });
 
-  const htmlContent = generateLeafletHTML(markers);
+  const personaMarkers = (personas ?? [])
+    .filter((p) => p && p.id)
+    .map((p) => ({
+      id: p.id,
+      lat: p.lat,
+      lng: p.lng,
+      color: p.tipo === "ENCONTRADA" ? "#059669" : "#DC2626",
+      emoji: p.tipo === "ENCONTRADA" ? "✅" : "🔎",
+      titulo: p.nombre,
+      ubicacion: p.ubicacion || "Ubicación aproximada",
+      progreso: p.tipo === "ENCONTRADA" ? "Persona encontrada" : "Persona buscada",
+      kind: "persona",
+    }));
+
+  const htmlContent = generateLeafletHTML([...markers, ...personaMarkers]);
 
   const handleWebViewMessage = (event: { nativeEvent: { data: string } }) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
       if (data.type === "openDetail" && data.id) {
         handleOpenDetail(data.id);
+      } else if (data.type === "openPersona" && data.id && onSelectPersona) {
+        onSelectPersona(data.id);
       }
     } catch (e) {
       console.log("MapaIntegrado WebView message parse error:", e);

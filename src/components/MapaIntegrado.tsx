@@ -3,10 +3,15 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-nati
 import { useRouter } from "expo-router";
 import { Necesidad, CategoriaNecesidad } from "../types/need";
 import { COLORS, CATEGORY_CONFIGS } from "../constants/theme";
+import { PersonaMarker } from "./MapaIntegrado.types";
 
 interface MapaIntegradoProps {
   needs: Necesidad[];
   onSelectNeed?: (needId: string) => void;
+  /** Marcadores de personas (módulo reencuentro). Opcional y aditivo. */
+  personas?: PersonaMarker[];
+  /** Al tocar un marcador de persona. */
+  onSelectPersona?: (personaId: string) => void;
 }
 
 const CITY_COORDS_LOOKUP: Record<string, { lat: number; lng: number }> = {
@@ -59,7 +64,12 @@ export const getResolvedCoordinates = (need: Necesidad) => {
   };
 };
 
-export const MapaIntegrado: React.FC<MapaIntegradoProps> = ({ needs, onSelectNeed }) => {
+export const MapaIntegrado: React.FC<MapaIntegradoProps> = ({
+  needs,
+  onSelectNeed,
+  personas = [],
+  onSelectPersona,
+}) => {
   const router = useRouter();
   const [selectedNeed, setSelectedNeed] = useState<Necesidad | null>(needs[0] || null);
 
@@ -105,6 +115,31 @@ export const MapaIntegrado: React.FC<MapaIntegradoProps> = ({ needs, onSelectNee
 
       {/* Marcadores Interactivos para Navegador */}
       <ScrollView contentContainerStyle={styles.webScroll}>
+        {(personas ?? []).map((p) => {
+          const color = p.tipo === "ENCONTRADA" ? "#059669" : "#DC2626";
+          return (
+            <TouchableOpacity
+              key={`persona-${p.id}`}
+              activeOpacity={0.8}
+              style={[styles.webPinCard, { borderLeftColor: color }]}
+              onPress={() => (onSelectPersona ? onSelectPersona(p.id) : router.push("/reencuentro/lista"))}
+              testID={`mapa-persona-${p.id}`}
+            >
+              <View style={styles.webPinHeader}>
+                <View style={[styles.webPinBadge, { backgroundColor: color }]}>
+                  <Text style={{ color: "#FFF", fontSize: 11, fontWeight: "800" }}>
+                    {p.tipo === "ENCONTRADA" ? "✅" : "🔎"} {p.tipo}
+                  </Text>
+                </View>
+                <Text style={styles.webPinCoords}>
+                  {p.lat.toFixed(3)}, {p.lng.toFixed(3)}
+                </Text>
+              </View>
+              <Text style={styles.webPinTitle}>{p.nombre}</Text>
+              {p.ubicacion ? <Text style={styles.webPinLocation}>📍 {p.ubicacion}</Text> : null}
+            </TouchableOpacity>
+          );
+        })}
         {needs.map((need) => {
           const color = getMarkerColor(need.categoria, need.completado);
           const catConfig = CATEGORY_CONFIGS[need.categoria];
