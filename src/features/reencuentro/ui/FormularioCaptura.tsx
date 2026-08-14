@@ -27,13 +27,15 @@ interface Props {
   locationProvider?: LocationProvider;
   /** Geocodificación inversa (coords -> texto); opcional (fallback: "lat, lng"). */
   geocoder?: Geocoder;
+  /** Elige/sube una foto y devuelve su URL; si falta, se oculta "Agregar foto". */
+  onSubirFoto?: () => Promise<string | null>;
 }
 
 /**
  * Pantalla de captura de persona (BUSCADA / ENCONTRADA). Offline-first:
  * al enviar, el reporte se guarda local y se sincroniza al recuperar señal.
  */
-export function FormularioCaptura({ creadoPorId, onCrear, locationProvider, geocoder }: Props) {
+export function FormularioCaptura({ creadoPorId, onCrear, locationProvider, geocoder, onSubirFoto }: Props) {
   const [tipo, setTipo] = useState<TipoReporte>("BUSCADA");
   const [nombre, setNombre] = useState("");
   const [edad, setEdad] = useState("");
@@ -44,6 +46,8 @@ export function FormularioCaptura({ creadoPorId, onCrear, locationProvider, geoc
   const [resultado, setResultado] = useState<CrearReporteResultado | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ubicando, setUbicando] = useState(false);
+  const [fotoUrl, setFotoUrl] = useState<string | null>(null);
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
 
   const rol = tipo === "BUSCADA" ? "FAMILIAR" : "SOCORRISTA";
 
@@ -53,6 +57,7 @@ export function FormularioCaptura({ creadoPorId, onCrear, locationProvider, geoc
     setUbicacion("");
     setSenas("");
     setContacto("");
+    setFotoUrl(null);
     setResultado(null);
   };
 
@@ -73,6 +78,17 @@ export function FormularioCaptura({ creadoPorId, onCrear, locationProvider, geoc
     }
   }
 
+  async function agregarFoto() {
+    if (!onSubirFoto) return;
+    setSubiendoFoto(true);
+    try {
+      const url = await onSubirFoto();
+      if (url) setFotoUrl(url);
+    } finally {
+      setSubiendoFoto(false);
+    }
+  }
+
   async function enviar() {
     setEnviando(true);
     setError(null);
@@ -86,6 +102,7 @@ export function FormularioCaptura({ creadoPorId, onCrear, locationProvider, geoc
         edadAprox: typeof edadNum === "number" && Number.isFinite(edadNum) ? edadNum : undefined,
         ultimaUbicacion: ubicacion.trim() ? { texto: ubicacion.trim() } : undefined,
         senasParticulares: senas.trim() || undefined,
+        foto: fotoUrl ? { urlRemota: fotoUrl, comprimida: true } : undefined,
         reportante:
           tipo === "BUSCADA" && contacto.trim() ? { contactoWhatsapp: contacto.trim() } : undefined,
       };
@@ -183,6 +200,24 @@ export function FormularioCaptura({ creadoPorId, onCrear, locationProvider, geoc
         onChangeText={setSenas}
         multiline
       />
+
+      {onSubirFoto ? (
+        <Pressable
+          testID="agregar-foto"
+          style={[styles.ubicBtn, subiendoFoto && styles.botonDisabled]}
+          onPress={agregarFoto}
+          disabled={subiendoFoto}
+          accessibilityRole="button"
+        >
+          {subiendoFoto ? (
+            <ActivityIndicator color={COLORS.primary} />
+          ) : (
+            <Text style={styles.ubicBtnTexto}>
+              {fotoUrl ? "✅ Foto agregada — cambiar" : "📷 Agregar foto"}
+            </Text>
+          )}
+        </Pressable>
+      ) : null}
       {tipo === "BUSCADA" && (
         <TextInput
           style={styles.input}
