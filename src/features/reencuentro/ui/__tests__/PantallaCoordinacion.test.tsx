@@ -56,4 +56,15 @@ describe("PantallaCoordinacion", () => {
     await waitFor(() => expect(service.confirmar).toHaveBeenCalledWith("c9"));
     await waitFor(() => expect(service.listar).toHaveBeenCalledTimes(2));
   });
+
+  it("al confirmar dispara onCoincidenciaConfirmada (canal B2)", async () => {
+    const service = fakeService([coincidencia({ id: "c9" })]);
+    const onConfirmada = jest.fn();
+    render(<PantallaCoordinacion service={service} onCoincidenciaConfirmada={onConfirmada} />);
+    await waitFor(() => expect(screen.getByText("Confirmar")).toBeTruthy());
+
+    fireEvent.press(screen.getByText("Confirmar"));
+
+    await waitFor(() => expect(onConfirmada).toHaveBeenCalledWith("c9"));
+  });
 });
