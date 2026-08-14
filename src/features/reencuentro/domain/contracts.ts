@@ -80,4 +80,6 @@ export interface ReportsQueryPort {
 export interface ReportMutationPort {
   /** Marca un reporte como RESUELTO (persona encontrada / caso cerrado). */
   marcarResuelto(id: string): Promise<void>;
+  /** Marca un reporte como DUPLICADO de un maestro (fusión de reportes). */
+  marcarDuplicado(id: string, maestroId: string): Promise<void>;
 }
