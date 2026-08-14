@@ -5,6 +5,7 @@ import { SupabaseMatchGateway } from "../../src/features/reencuentro/services/su
 import { SupabaseSolicitudesQuery } from "../../src/features/reencuentro/services/supabase-solicitudes-query";
 import { SupabaseCoordinadorAprobacion } from "../../src/features/reencuentro/services/supabase-coordinador-aprobacion";
 import { SupabaseNotificacionesGateway } from "../../src/features/reencuentro/services/supabase-notificaciones-gateway";
+import { notificarCoordinadoresCoincidencia } from "../../src/features/reencuentro/services/notificar-coordinadores";
 import { COLORS } from "../../src/constants/theme";
 
 const service = new SupabaseMatchGateway();
@@ -20,6 +21,7 @@ export default function CoordinacionRoute() {
         solicitudesQuery={solicitudesQuery}
         aprobacion={aprobacion}
         notificaciones={notificaciones}
+        onCoincidenciaConfirmada={(id) => notificarCoordinadoresCoincidencia(id)}
       />
     </SafeAreaView>
   );

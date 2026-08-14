@@ -27,6 +27,8 @@ interface Props {
   notificaciones?: NotificacionesBoardPort;
   /** Abre una URL (WhatsApp). Inyectable para testeo; por defecto Linking. */
   abrirUrl?: (url: string) => void;
+  /** Canal B2: se llama tras confirmar (push a coordinadores). Best-effort. */
+  onCoincidenciaConfirmada?: (coincidenciaId: string) => void;
 }
 
 /**
@@ -41,6 +43,7 @@ export function PantallaCoordinacion({
   abrirUrl = (u) => {
     void Linking.openURL(u);
   },
+  onCoincidenciaConfirmada,
 }: Props) {
   const [coincidencias, setCoincidencias] = useState<Coincidencia[]>([]);
   const [solicitudes, setSolicitudes] = useState<SolicitudCoordinador[]>([]);
@@ -102,6 +105,7 @@ export function PantallaCoordinacion({
     await service.confirmar(id);
     await cargar();
     await cargarPendientes();
+    onCoincidenciaConfirmada?.(id);
   };
 
   const notificar = (item: NotificacionPendiente) => {
