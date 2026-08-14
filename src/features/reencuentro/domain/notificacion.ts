@@ -20,6 +20,21 @@ export function mensajeNotificacionFamilia(nombre?: string): string {
   );
 }
 
+/** Coincidencia lista para avisar a la familia (datos mínimos para el tablero). */
+export interface NotificacionPendiente {
+  coincidenciaId: string;
+  nombre?: string;
+  contacto?: string;
+}
+
+/** Puerto del tablero para el canal A (WhatsApp): listar y marcar notificadas. */
+export interface NotificacionesBoardPort {
+  /** Coincidencias en PENDIENTE_NOTIFICACION (no-fallecido), con nombre y contacto. */
+  listarPendientes(): Promise<NotificacionPendiente[]>;
+  /** Marca la coincidencia como NOTIFICADA (tras enviar el aviso). */
+  marcarNotificada(coincidenciaId: string): Promise<void>;
+}
+
 /** Plan de notificación a la familia: a quién y con qué mensaje. */
 export interface PlanNotificacionFamilia {
   contactoWhatsapp: string;

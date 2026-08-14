@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { View, Text, Pressable, StyleSheet, ActivityIndicator, Alert } from "react-native";
+import { View, Text, Pressable, StyleSheet, ActivityIndicator, Alert, Linking } from "react-native";
 import { COLORS } from "../../../constants/theme";
 import {
   Coincidencia,
@@ -7,9 +7,14 @@ import {
   SolicitudCoordinador,
   SolicitudesQueryPort,
   CoordinadorAprobacionPort,
+  NotificacionPendiente,
+  NotificacionesBoardPort,
+  mensajeNotificacionFamilia,
 } from "../domain";
+import { urlWhatsAppContacto } from "../services/compartir";
 import { TableroCoordinador } from "./TableroCoordinador";
 import { PanelSolicitudes } from "./PanelSolicitudes";
+import { PanelNotificaciones } from "./PanelNotificaciones";
 
 interface Props {
   /** Servicio del tablero (inyectado para testeo; en la ruta real es Supabase). */
@@ -18,15 +23,28 @@ interface Props {
   solicitudesQuery?: SolicitudesQueryPort;
   /** Aprobación/rechazo de solicitudes; requerido para operar el panel. */
   aprobacion?: CoordinadorAprobacionPort;
+  /** Canal A (avisos a familias); si falta, no se muestra el panel de avisos. */
+  notificaciones?: NotificacionesBoardPort;
+  /** Abre una URL (WhatsApp). Inyectable para testeo; por defecto Linking. */
+  abrirUrl?: (url: string) => void;
 }
 
 /**
  * Contenedor del tablero del coordinador: carga coincidencias, dispara la
  * búsqueda (RPC) y aplica confirmar/rechazar contra el servicio.
  */
-export function PantallaCoordinacion({ service, solicitudesQuery, aprobacion }: Props) {
+export function PantallaCoordinacion({
+  service,
+  solicitudesQuery,
+  aprobacion,
+  notificaciones,
+  abrirUrl = (u) => {
+    void Linking.openURL(u);
+  },
+}: Props) {
   const [coincidencias, setCoincidencias] = useState<Coincidencia[]>([]);
   const [solicitudes, setSolicitudes] = useState<SolicitudCoordinador[]>([]);
+  const [pendientes, setPendientes] = useState<NotificacionPendiente[]>([]);
   const [cargando, setCargando] = useState(false);
   const [buscando, setBuscando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,10 +70,20 @@ export function PantallaCoordinacion({ service, solicitudesQuery, aprobacion }: 
     }
   }, [solicitudesQuery]);
 
+  const cargarPendientes = useCallback(async () => {
+    if (!notificaciones) return;
+    try {
+      setPendientes(await notificaciones.listarPendientes());
+    } catch {
+      // Panel secundario; no bloquea el tablero.
+    }
+  }, [notificaciones]);
+
   useEffect(() => {
     void cargar();
     void cargarSolicitudes();
-  }, [cargar, cargarSolicitudes]);
+    void cargarPendientes();
+  }, [cargar, cargarSolicitudes, cargarPendientes]);
 
   const buscar = async () => {
     setBuscando(true);
@@ -73,6 +101,30 @@ export function PantallaCoordinacion({ service, solicitudesQuery, aprobacion }: 
   const confirmar = async (id: string) => {
     await service.confirmar(id);
     await cargar();
+    await cargarPendientes();
+  };
+
+  const notificar = (item: NotificacionPendiente) => {
+    if (!notificaciones || !item.contacto) return;
+    Alert.alert(
+      "Avisar a la familia",
+      `Se abrirá WhatsApp para escribir a ${item.nombre ?? "la familia"}. El mensaje es prudente (posible coincidencia, a verificar). ¿Continuar?`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Abrir WhatsApp",
+          onPress: async () => {
+            abrirUrl(urlWhatsAppContacto(item.contacto!, mensajeNotificacionFamilia(item.nombre)));
+            try {
+              await notificaciones.marcarNotificada(item.coincidenciaId);
+              await cargarPendientes();
+            } catch {
+              Alert.alert("Aviso abierto", "No se pudo marcar como notificada; inténtalo de nuevo.");
+            }
+          },
+        },
+      ]
+    );
   };
 
   const rechazar = async (id: string) => {
@@ -147,6 +199,10 @@ export function PantallaCoordinacion({ service, solicitudesQuery, aprobacion }: 
           onAprobar={aprobarSolicitud}
           onRechazar={rechazarSolicitud}
         />
+      ) : null}
+
+      {notificaciones ? (
+        <PanelNotificaciones pendientes={pendientes} onNotificar={notificar} />
       ) : null}
 
       {cargando ? (

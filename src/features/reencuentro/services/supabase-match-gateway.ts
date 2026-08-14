@@ -24,9 +24,18 @@ export class SupabaseMatchGateway implements MatchBoardService {
   }
 
   async confirmar(id: string): Promise<void> {
+    // Al confirmar: los casos SIN fallecido pasan directo a PENDIENTE_NOTIFICACION
+    // (listos para avisar a la familia). Los casos con fallecido quedan CONFIRMADA
+    // y NO se notifican por la app (protocolo oficial reforzado).
+    const { data } = await supabase
+      .from("reencuentro_coincidencias")
+      .select("involucra_fallecido")
+      .eq("id", id)
+      .single();
+    const nuevoEstado = data?.involucra_fallecido ? "CONFIRMADA" : "PENDIENTE_NOTIFICACION";
     const { error } = await supabase
       .from("reencuentro_coincidencias")
-      .update({ estado: "CONFIRMADA", actualizado_en: new Date().toISOString() })
+      .update({ estado: nuevoEstado, actualizado_en: new Date().toISOString() })
       .eq("id", id);
     if (error) throw new Error(error.message);
   }
