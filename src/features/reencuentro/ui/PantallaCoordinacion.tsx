@@ -10,11 +10,16 @@ import {
   NotificacionPendiente,
   NotificacionesBoardPort,
   mensajeNotificacionFamilia,
+  GrupoDuplicados,
+  agruparDuplicados,
+  ReportsQueryPort,
+  ReportMutationPort,
 } from "../domain";
 import { urlWhatsAppContacto } from "../services/compartir";
 import { TableroCoordinador } from "./TableroCoordinador";
 import { PanelSolicitudes } from "./PanelSolicitudes";
 import { PanelNotificaciones } from "./PanelNotificaciones";
+import { PanelDuplicados } from "./PanelDuplicados";
 
 interface Props {
   /** Servicio del tablero (inyectado para testeo; en la ruta real es Supabase). */
@@ -29,6 +34,10 @@ interface Props {
   abrirUrl?: (url: string) => void;
   /** Canal B2: se llama tras confirmar (push a coordinadores). Best-effort. */
   onCoincidenciaConfirmada?: (coincidenciaId: string) => void;
+  /** Pool de reportes para detectar duplicados; si falta, no se muestra el panel. */
+  dedupQuery?: ReportsQueryPort;
+  /** Mutación de reportes (marcarDuplicado); requerido para operar el panel. */
+  mutation?: ReportMutationPort;
 }
 
 /**
@@ -44,10 +53,13 @@ export function PantallaCoordinacion({
     void Linking.openURL(u);
   },
   onCoincidenciaConfirmada,
+  dedupQuery,
+  mutation,
 }: Props) {
   const [coincidencias, setCoincidencias] = useState<Coincidencia[]>([]);
   const [solicitudes, setSolicitudes] = useState<SolicitudCoordinador[]>([]);
   const [pendientes, setPendientes] = useState<NotificacionPendiente[]>([]);
+  const [grupos, setGrupos] = useState<GrupoDuplicados[]>([]);
   const [cargando, setCargando] = useState(false);
   const [buscando, setBuscando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,11 +94,22 @@ export function PantallaCoordinacion({
     }
   }, [notificaciones]);
 
+  const cargarDuplicados = useCallback(async () => {
+    if (!dedupQuery) return;
+    try {
+      const reportes = await dedupQuery.listarBuscadasPublicas();
+      setGrupos(agruparDuplicados(reportes));
+    } catch {
+      // Panel secundario; no bloquea el tablero.
+    }
+  }, [dedupQuery]);
+
   useEffect(() => {
     void cargar();
     void cargarSolicitudes();
     void cargarPendientes();
-  }, [cargar, cargarSolicitudes, cargarPendientes]);
+    void cargarDuplicados();
+  }, [cargar, cargarSolicitudes, cargarPendientes, cargarDuplicados]);
 
   const buscar = async () => {
     setBuscando(true);
@@ -177,6 +200,28 @@ export function PantallaCoordinacion({
     ]);
   };
 
+  const marcarDuplicado = (duplicadoId: string, maestroId: string) => {
+    if (!mutation) return;
+    Alert.alert(
+      "Marcar duplicado",
+      "Este reporte se marcará como DUPLICADO y se fusionará con el que se conserva. ¿Confirmas?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Sí, marcar",
+          onPress: async () => {
+            try {
+              await mutation.marcarDuplicado(duplicadoId, maestroId);
+              await cargarDuplicados();
+            } catch {
+              Alert.alert("No se pudo", "Intenta de nuevo.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -207,6 +252,10 @@ export function PantallaCoordinacion({
 
       {notificaciones ? (
         <PanelNotificaciones pendientes={pendientes} onNotificar={notificar} />
+      ) : null}
+
+      {dedupQuery && mutation ? (
+        <PanelDuplicados grupos={grupos} onMarcarDuplicado={marcarDuplicado} />
       ) : null}
 
       {cargando ? (

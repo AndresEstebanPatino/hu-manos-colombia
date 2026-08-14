@@ -69,7 +69,7 @@ describe("PantallaLista", () => {
   });
 
   it("muestra 'Marcar encontrada' con mutation + autorización de coordinador", async () => {
-    const mutation = { marcarResuelto: jest.fn().mockResolvedValue(undefined) };
+    const mutation = { marcarResuelto: jest.fn().mockResolvedValue(undefined), marcarDuplicado: jest.fn() };
     render(
       <PantallaLista
         query={fakeQuery([reporte({ id: "a", nombre: "Ana" })])}
@@ -82,7 +82,7 @@ describe("PantallaLista", () => {
   });
 
   it("oculta 'Marcar encontrada' a un anónimo no autorizado", async () => {
-    const mutation = { marcarResuelto: jest.fn() };
+    const mutation = { marcarResuelto: jest.fn(), marcarDuplicado: jest.fn() };
     render(
       <PantallaLista
         query={fakeQuery([reporte({ id: "a", nombre: "Ana", creadoPorId: "otro" })])}
