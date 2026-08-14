@@ -34,6 +34,8 @@ interface Props {
   mutation?: ReportMutationPort;
   /** Handler de avistamiento ("La vi"); si falta, se oculta el botón. */
   onAvistamiento?: (r: ReportePersona) => Promise<void> | void;
+  /** Exporta los reportes a PFIF; si falta, se oculta el botón. */
+  onExportarPfif?: (reportes: ReportePersona[]) => void;
 }
 
 /** Lista pública de personas BUSCADAS: buscador tolerante + filtros + compartir. */
@@ -46,6 +48,7 @@ export function PantallaLista({
   roles = [],
   mutation,
   onAvistamiento,
+  onExportarPfif,
 }: Props) {
   const [reportes, setReportes] = useState<ReportePersona[]>([]);
   const [texto, setTexto] = useState("");
@@ -146,6 +149,17 @@ export function PantallaLista({
         <Text style={[styles.chipTexto, soloConFoto && styles.chipTextoActivo]}>Con foto</Text>
       </Pressable>
 
+      {onExportarPfif && reportes.length > 0 ? (
+        <Pressable
+          testID="exportar-pfif"
+          style={styles.exportar}
+          onPress={() => onExportarPfif(reportes)}
+          accessibilityRole="button"
+        >
+          <Text style={styles.exportarTexto}>⬇︎ Exportar PFIF</Text>
+        </Pressable>
+      ) : null}
+
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {cargando ? (
@@ -238,6 +252,16 @@ const styles = StyleSheet.create({
   chipActivo: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
   chipTexto: { color: COLORS.text, fontWeight: "600", fontSize: 13 },
   chipTextoActivo: { color: "#fff" },
+  exportar: {
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    backgroundColor: COLORS.card,
+  },
+  exportarTexto: { color: COLORS.textMuted, fontWeight: "700", fontSize: 12 },
   error: { color: COLORS.flagRedSoft, fontSize: 13 },
   loader: { marginTop: 24 },
   vacio: { color: COLORS.textMuted, marginTop: 16, fontSize: 14 },
