@@ -21,8 +21,11 @@ export default function TabLayout() {
           paddingTop: 6,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: "700",
+        },
+        tabBarItemStyle: {
+          paddingHorizontal: 2,
         },
       }}
     >
@@ -42,7 +45,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="reencuentro"
         options={{
-          title: "Reencuentro",
+          title: "Buscar",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "people" : "people-outline"}
@@ -61,7 +64,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="my-needs"
         options={{
-          title: "Mis Alertas",
+          title: "Alertas",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "megaphone" : "megaphone-outline"}
@@ -74,7 +77,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="emergency"
         options={{
-          title: "Líneas 123",
+          title: "Líneas",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "call" : "call-outline"}
@@ -87,7 +90,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="coordinacion"
         options={{
-          title: "Coordinación",
+          title: "Panel",
           href: esCoordinador ? undefined : null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
