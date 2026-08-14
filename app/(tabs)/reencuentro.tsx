@@ -3,6 +3,7 @@ import { SafeAreaView, View, Text, Pressable, StyleSheet } from "react-native";
 import { Link } from "expo-router";
 import { FormularioCaptura } from "../../src/features/reencuentro/ui/FormularioCaptura";
 import { crearCaptureService } from "../../src/features/reencuentro/services/capture-service";
+import { elegirYSubirFoto } from "../../src/features/reencuentro/services/foto-captura";
 import { iniciarAutoSync } from "../../src/features/reencuentro/services/auto-sync";
 import { NetInfoConnectivityMonitor } from "../../src/features/reencuentro/services/netinfo-connectivity-monitor";
 import { ExpoLocationProvider } from "../../src/features/reencuentro/services/expo-location-provider";
@@ -45,6 +46,7 @@ export default function ReencuentroTab() {
         onCrear={service.crear}
         locationProvider={locationProvider}
         geocoder={geocoder}
+        onSubirFoto={() => elegirYSubirFoto("GALERIA")}
       />
     </SafeAreaView>
   );
