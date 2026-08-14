@@ -1,4 +1,4 @@
-import { mensajeDifusion, urlCompartirWhatsApp } from "../compartir";
+import { mensajeDifusion, urlCompartirWhatsApp, urlWhatsAppContacto } from "../compartir";
 import { ReportePersona } from "../../domain";
 
 function reporte(over: Partial<ReportePersona> = {}): ReportePersona {
@@ -43,5 +43,13 @@ describe("urlCompartirWhatsApp", () => {
     expect(url.startsWith("https://wa.me/?text=")).toBe(true);
     expect(url).toContain("hola%20mundo");
     expect(url).toContain("%26"); // & codificado
+  });
+});
+
+describe("urlWhatsAppContacto", () => {
+  it("dirige la URL a un número (solo dígitos) con el texto codificado", () => {
+    const url = urlWhatsAppContacto("+57 300 123 4567", "hola & saludos");
+    expect(url.startsWith("https://wa.me/573001234567?text=")).toBe(true);
+    expect(url).toContain("%26");
   });
 });

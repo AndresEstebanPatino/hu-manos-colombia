@@ -8,4 +8,5 @@ export * from "./busqueda";
 export * from "./acciones";
 export * from "./onboarding";
 export * from "./geolocalizacion";
+export * from "./notificacion";
 export * from "./mocks";
