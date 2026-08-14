@@ -187,13 +187,16 @@ export const createNeed = async (
 
     // 4. Agregar inmediatamente la notificación global en la tabla 'notificaciones' para la campana 🔔
     try {
+      const isUuid = (val?: string | null) =>
+        typeof val === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
       await supabase.from("notificaciones").insert([
         {
           titulo: "🚨 Nueva solicitud creada",
           mensaje: `${newNeed.titulo} en ${newNeed.ubicacion}`,
           tipo: "NUEVO_EVENTO",
-          necesidad_id: newNeed.id,
-          creado_por: validUserId,
+          necesidad_id: isUuid(newNeed.id) ? newNeed.id : null,
+          creado_por: isUuid(validUserId) ? validUserId : null,
         },
       ]);
     } catch (notifErr) {
@@ -241,37 +244,128 @@ export const deleteNeed = async (id: string, userId?: string): Promise<boolean> 
 };
 
 /**
- * Incrementa el progreso de una necesidad (+1 Me sumo por usuario único para evitar spam)
+ * Incrementa (o decrementa en toggle) el progreso de una necesidad.
+ *
+ * Cuando Supabase está disponible: delega toda la lógica de deduplicación y
+ * actualización de progreso a la RPC atómica `registrar_contribucion`, que
+ * gestiona `apoyantes_ids`, `contribuciones` y `progreso_actual` en una sola
+ * transacción con FOR UPDATE. El estado local se sincroniza con el valor
+ * devuelto por el servidor.
+ *
+ * Cuando Supabase NO está disponible (offline): usa la lógica local basada
+ * en `apoyantes_ids` en memoria como fallback de emergencia.
  */
-export const incrementNeedProgress = async (id: string, userId?: string): Promise<{ need: Necesidad; added: boolean } | null> => {
+export const incrementNeedProgress = async (
+  id: string,
+  userId?: string
+): Promise<{ need: Necesidad; added: boolean } | null> => {
   try {
     const existingNeeds = await getNeeds();
     const index = existingNeeds.findIndex((n) => n.id === id);
-
     if (index === -1) return null;
 
     const current = existingNeeds[index];
-    const currentApoyantes = current.apoyantes_ids || [];
     const effectiveUserId = userId || "anonymous-user";
 
+    // ── MODO ONLINE: delegar a la RPC atómica ─────────────────────────────
+    if (isSupabaseConfigured() && userId) {
+      const { data: rpcData, error: rpcError } = await supabase.rpc(
+        "registrar_contribucion",
+        {
+          p_necesidad_id: id,
+          p_cantidad_aportada: 1,
+        }
+      );
+
+      if (!rpcError && rpcData) {
+        // RPC atómica exitosa — sincronizar estado local con valores del servidor
+        const added = rpcData.accion === "agregado";
+        const updatedItem: Necesidad = {
+          ...current,
+          progreso_actual: rpcData.progreso_actual,
+          completado: rpcData.completado,
+          // Actualizar apoyantes_ids localmente solo como cache UI
+          apoyantes_ids: added
+            ? [...(current.apoyantes_ids || []), userId]
+            : (current.apoyantes_ids || []).filter((uid) => uid !== userId),
+        };
+        existingNeeds[index] = updatedItem;
+        await safeAsyncStorage.setItem(STORAGE_KEY, JSON.stringify(existingNeeds));
+        return { need: updatedItem, added };
+      }
+
+      // RPC falló (ej. migración aún no aplicada): intentar UPDATE directo más
+      // consulta a contribuciones para determinar si es toggle on o toggle off.
+      if (rpcError) {
+        console.warn("RPC registrar_contribucion no disponible, usando fallback directo:", rpcError.message);
+
+        // Verificar si el usuario ya contribuyó consultando la tabla contribuciones
+        const { data: existingContrib } = await supabase
+          .from("contribuciones")
+          .select("id")
+          .eq("necesidad_id", id)
+          .eq("usuario_id", userId)
+          .maybeSingle();
+
+        const alreadySupported = Boolean(existingContrib);
+        const newProgress = alreadySupported
+          ? Math.max(current.progreso_actual - 1, 0)
+          : current.progreso_actual + 1;
+        const isCompleted = newProgress >= current.meta_cantidad;
+        const added = !alreadySupported;
+
+        const updatedItem: Necesidad = {
+          ...current,
+          progreso_actual: newProgress,
+          completado: isCompleted,
+          apoyantes_ids: added
+            ? [...(current.apoyantes_ids || []), userId]
+            : (current.apoyantes_ids || []).filter((uid) => uid !== userId),
+        };
+
+        existingNeeds[index] = updatedItem;
+        await safeAsyncStorage.setItem(STORAGE_KEY, JSON.stringify(existingNeeds));
+
+        // UPDATE a Supabase (solo progreso_actual y completado — sin apoyantes_ids)
+        supabase
+          .from("necesidades")
+          .update({ progreso_actual: newProgress, completado: isCompleted })
+          .eq("id", id)
+          .then(({ error }) => {
+            if (error) console.warn("Supabase update progreso (fallback):", error.message);
+          });
+
+        // INSERT a contribuciones (si es toggle ON)
+        if (added) {
+          supabase
+            .from("contribuciones")
+            .insert([{ necesidad_id: id, usuario_id: userId, cantidad_aportada: 1, confirmado: true }])
+            .then(({ error }) => {
+              if (error) console.warn("Insert contribuciones (fallback):", error.message);
+            });
+        }
+
+        return { need: updatedItem, added };
+      }
+    }
+
+    // ── MODO OFFLINE / sin usuario autenticado: lógica local ──────────────
+    const currentApoyantes = current.apoyantes_ids || [];
     let updatedApoyantes: string[];
     let newProgress: number;
     let added = false;
 
     if (currentApoyantes.includes(effectiveUserId)) {
-      // Si el usuario ya se había sumado, remover apoyo (toggle / un-sumar)
       updatedApoyantes = currentApoyantes.filter((uid) => uid !== effectiveUserId);
       newProgress = Math.max(current.progreso_actual - 1, 0);
       added = false;
     } else {
-      // Si no se había sumado, agregar +1 único
       updatedApoyantes = [...currentApoyantes, effectiveUserId];
       newProgress = current.progreso_actual + 1;
       added = true;
     }
 
     const isCompleted = newProgress >= current.meta_cantidad;
-
     const updatedItem: Necesidad = {
       ...current,
       progreso_actual: newProgress,
@@ -280,22 +374,7 @@ export const incrementNeedProgress = async (id: string, userId?: string): Promis
     };
 
     existingNeeds[index] = updatedItem;
-
     await safeAsyncStorage.setItem(STORAGE_KEY, JSON.stringify(existingNeeds));
-
-    if (isSupabaseConfigured()) {
-      supabase
-        .from("necesidades")
-        .update({
-          progreso_actual: newProgress,
-          completado: isCompleted,
-          apoyantes_ids: updatedApoyantes,
-        })
-        .eq("id", id)
-        .then(({ error }) => {
-          if (error) console.log("Supabase update info:", error.message);
-        });
-    }
 
     return { need: updatedItem, added };
   } catch (error) {

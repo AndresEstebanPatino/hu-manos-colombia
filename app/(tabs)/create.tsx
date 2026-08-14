@@ -21,7 +21,6 @@ import { createNeed, formatWhatsAppNumber, getValidSupabaseUserId } from "../../
 import { CATEGORY_CONFIGS, COLORS } from "../../src/constants/theme";
 import { useNotifications } from "../../src/context/NotificationContext";
 import { useAuth } from "../../src/context/AuthContext";
-import { notifyNewNeedCreated } from "../../src/services/pushNotifications";
 import { supabase, isSupabaseConfigured } from "../../src/lib/supabase";
 import { getCurrentGPSCoordinates } from "../../src/services/locationService";
 import { LocationPickerModal } from "../../src/components/LocationPickerModal";
@@ -309,14 +308,6 @@ export default function CreateNeedScreen() {
         "🎉 ¡Publicado con Éxito!",
         `Tu solicitud "${created.titulo}" ya está guardada y visible para toda la comunidad.`,
         "success"
-      );
-
-      // Disparar Notificación Push a los demás usuarios de Hu-Manos Colombia
-      notifyNewNeedCreated(
-        created.titulo,
-        created.ubicacion,
-        created.id,
-        created.creador_id || user?.id
       );
 
       // Limpiar formulario y volver al feed principal

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -22,9 +22,9 @@ import { ReliabilityBadge } from "./ReliabilityBadge";
 import { ReportModal } from "./ReportModal";
 import {
   obtenerPerfilConfiabilidad,
-  registrarContribucionAtomic,
   UserReliabilityProfile,
 } from "../services/reliabilityService";
+import { supabase, isSupabaseConfigured } from "../lib/supabase";
 
 interface NeedCardProps {
   need: Necesidad;
@@ -50,15 +50,38 @@ export const NeedCard: React.FC<NeedCardProps> = ({
   const [creatorProfile, setCreatorProfile] = React.useState<UserReliabilityProfile | null>(null);
   const [showReportModal, setShowReportModal] = useState(false);
 
+  // hasSupported: ¿el usuario actual ya reservó/se sumó a esta necesidad?
+  // Se inicializa desde apoyantes_ids (disponible tras la migración SQL) y se
+  // sincroniza con la tabla contribuciones para mayor precisión.
+  const [hasSupportedLocal, setHasSupportedLocal] = useState<boolean>(
+    Boolean(user?.id && (need.apoyantes_ids as string[] | undefined)?.includes(user.id))
+  );
+
   React.useEffect(() => {
     if (need.creador_id) {
       obtenerPerfilConfiabilidad(need.creador_id).then(setCreatorProfile);
     }
   }, [need.creador_id]);
 
+  // Verificar en Supabase si el usuario ya aportó (fuente de verdad definitiva)
+  useEffect(() => {
+    if (!user?.id || !isSupabaseConfigured()) return;
+    supabase
+      .from("contribuciones")
+      .select("id")
+      .eq("necesidad_id", need.id)
+      .eq("usuario_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setHasSupportedLocal(Boolean(data));
+      });
+  }, [need.id, user?.id]);
+
   const isClosedManually = Boolean(need.completado);
   const isMetaReached = need.progreso_actual >= need.meta_cantidad;
-  const hasSupported = Boolean(user?.id && need.apoyantes_ids?.includes(user.id));
+  // hasSupportedLocal (local state) es la fuente de verdad en UI.
+  // Se sincroniza contra contribuciones vía useEffect arriba.
+  const hasSupported = hasSupportedLocal;
   const hasVotedTrust = Boolean(user?.id && votosIds.includes(user.id));
 
   const hasValidPhone = Boolean(
@@ -67,22 +90,32 @@ export const NeedCard: React.FC<NeedCardProps> = ({
     need.contacto_whatsapp.replace(/\D/g, "").length >= 7
   );
 
+  const isOferta = need.modo === "OFERTA";
   const eventShareUrl = `https://hu-manos-colombia.app/detail/${need.id}`;
 
-  const eventShareMessage = 
-    `🚨 *SOLICITUD DE AYUDA - HU-MANOS COLOMBIA* 🚨\n\n` +
-    `📌 *Solicitud:* ${need.titulo}\n` +
-    `📍 *Ubicación:* ${need.ubicacion}\n` +
-    `📊 *Progreso:* ${need.progreso_actual} de ${need.meta_cantidad} ${need.unidad_medida || "ayudas"}\n` +
-    (need.descripcion ? `📝 *Detalles:* ${need.descripcion}\n` : "") +
-    `\n👉 *Ver evento y sumarte aquí:* ${eventShareUrl}\n\n` +
-    `*Hu-Manos Colombia - Una mano para quien lo necesita*`;
+  const eventShareMessage = isOferta
+    ? `🎁 *OFERTA DE APOYO - HU-MANOS COLOMBIA* 🎁\n\n` +
+      `📌 *Oferta:* ${need.titulo}\n` +
+      `📍 *Ubicación:* ${need.ubicacion}\n` +
+      `📊 *Disponibilidad:* ${need.progreso_actual} de ${need.meta_cantidad} ${need.unidad_medida || "unidades"} reclamados\n` +
+      (need.descripcion ? `📝 *Detalles:* ${need.descripcion}\n` : "") +
+      `\n👉 *Ver oferta y reservarla aquí:* ${eventShareUrl}\n\n` +
+      `*Hu-Manos Colombia - Una mano para quien lo necesita*`
+    : `🚨 *SOLICITUD DE AYUDA - HU-MANOS COLOMBIA* 🚨\n\n` +
+      `📌 *Solicitud:* ${need.titulo}\n` +
+      `📍 *Ubicación:* ${need.ubicacion}\n` +
+      `📊 *Progreso:* ${need.progreso_actual} de ${need.meta_cantidad} ${need.unidad_medida || "ayudas"}\n` +
+      (need.descripcion ? `📝 *Detalles:* ${need.descripcion}\n` : "") +
+      `\n👉 *Ver evento y sumarte aquí:* ${eventShareUrl}\n\n` +
+      `*Hu-Manos Colombia - Una mano para quien lo necesita*`;
 
   const handleOpenWhatsApp = async () => {
     if (hasValidPhone) {
       const rawNumber = need.contacto_whatsapp.replace(/\D/g, "");
       const cleanNumber = rawNumber.startsWith("57") ? rawNumber : `57${rawNumber}`;
-      const message = `Hola, vi tu solicitud en Hu-Manos Colombia: "${need.titulo}". Quiero ayudar.\n\nEnlace al evento: ${eventShareUrl}`;
+      const message = isOferta
+        ? `Hola, vi tu oferta en Hu-Manos Colombia: "${need.titulo}". Me interesa reservarla / recibir este apoyo.\n\nEnlace: ${eventShareUrl}`
+        : `Hola, vi tu solicitud en Hu-Manos Colombia: "${need.titulo}". Quiero ayudar.\n\nEnlace al evento: ${eventShareUrl}`;
       const whatsappUrl = `https://wa.me/${cleanNumber}?text=${encodeURIComponent(message)}`;
 
       try {
@@ -153,14 +186,20 @@ export const NeedCard: React.FC<NeedCardProps> = ({
   };
 
   const handlePressIncrement = () => {
-    onIncrement(need.id, user?.id);
-    // Registrar la contribución atómica en Supabase si el usuario está autenticado y se suma por primera vez
     const userId = user?.id;
-    if (userId && !hasSupported && need.creador_id) {
-      registrarContribucionAtomic(need.id, userId, 1).catch((err) =>
-        console.log("Contribución info:", err)
-      );
+    if (!userId) {
+      // Si no está autenticado, llamar igual a onIncrement (gestiona el aviso de login)
+      onIncrement(need.id, undefined);
+      return;
     }
+
+    // Actualización optimista en UI: toggle del botón antes de que el servidor responda
+    const willSupport = !hasSupportedLocal;
+    setHasSupportedLocal(willSupport);
+
+    // incrementNeedProgress ya llama a la RPC atómica internamente (o su fallback).
+    // No llamar registrarContribucionAtomic por separado para evitar doble escritura.
+    onIncrement(need.id, userId);
   };
 
   const handleConfirmDelete = () => {
@@ -286,8 +325,9 @@ export const NeedCard: React.FC<NeedCardProps> = ({
         <ProgressBar
           current={need.progreso_actual}
           total={need.meta_cantidad}
-          unit={need.unidad_medida || "ayudas"}
+          unit={need.unidad_medida || (isOferta ? "unidades" : "ayudas")}
           isCompleted={isClosedManually}
+          modo={need.modo}
         />
 
         {/* Banner Informativo si la Meta está Cubierta pero el evento no se ha cerrado */}
@@ -295,14 +335,16 @@ export const NeedCard: React.FC<NeedCardProps> = ({
           <View style={styles.metaReachedBanner}>
             <Ionicons name="checkmark-done-circle" size={16} color={COLORS.secondary} />
             <Text style={styles.metaReachedText}>
-              ¡Meta de {need.unidad_medida || "ayudas"} alcanzada! Si alguien cancela, la solicitud permanece visible.
+              {isOferta
+                ? `¡Oferta de ${need.unidad_medida || "unidades"} totalmente reservada/agotada!`
+                : `¡Meta de ${need.unidad_medida || "ayudas"} alcanzada! Si alguien cancela, la solicitud permanece visible.`}
             </Text>
           </View>
         )}
 
         {/* Main Action Buttons */}
         <View style={styles.actionsContainer}>
-          {/* Primary Action Button: Ofrecer Ayuda / Me Sumo */}
+          {/* Primary Action Button */}
           {!isClosedManually ? (
             <TouchableOpacity
               activeOpacity={0.85}
@@ -310,18 +352,26 @@ export const NeedCard: React.FC<NeedCardProps> = ({
               onPress={handlePressIncrement}
             >
               <Ionicons
-                name={hasSupported ? "checkmark-circle" : "add-circle"}
+                name={hasSupported ? "checkmark-circle" : isOferta ? "download-outline" : "add-circle"}
                 size={18}
                 color="#FFFFFF"
               />
               <Text style={styles.sumoButtonText}>
-                {hasSupported ? "✓ Ya Te Sumaste (Toca para remover)" : "Ofrecer Ayuda / Me Sumo"}
+                {isOferta
+                  ? hasSupported
+                    ? "✓ Ya Reservaste (Toca para cancelar)"
+                    : "📥 Lo necesito / Reservar"
+                  : hasSupported
+                  ? "✓ Ya Te Sumaste (Toca para remover)"
+                  : "🙋 Confirmar que voy a ayudar"}
               </Text>
             </TouchableOpacity>
           ) : (
             <View style={styles.completedBanner}>
               <Ionicons name="lock-closed" size={18} color={COLORS.secondary} />
-              <Text style={styles.completedBannerText}>Solicitud Cerrada por el Creador</Text>
+              <Text style={styles.completedBannerText}>
+                {isOferta ? "✅ Oferta Agotada / Cerrada por el Creador" : "✅ Necesidad Cubierta / Cerrada por el Creador"}
+              </Text>
             </View>
           )}
 
@@ -371,7 +421,13 @@ export const NeedCard: React.FC<NeedCardProps> = ({
               color={isClosedManually ? COLORS.primary : COLORS.secondary}
             />
             <Text style={[styles.creatorCloseText, isClosedManually && styles.creatorOpenText]}>
-              {isClosedManually ? "Reabrir Evento para la Comunidad" : "Marcar Necesidad como Cubierta / Cerrada"}
+              {isClosedManually
+                ? isOferta
+                  ? "Reabrir Oferta para la Comunidad"
+                  : "Reabrir Solicitud para la Comunidad"
+                : isOferta
+                ? "Marcar Oferta como Agotada / Cerrada"
+                : "Marcar Necesidad como Cubierta / Cerrada"}
             </Text>
           </TouchableOpacity>
         )}

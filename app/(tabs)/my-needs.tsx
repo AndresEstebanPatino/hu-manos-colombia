@@ -483,7 +483,13 @@ export default function MyNeedsScreen() {
                               : styles.statusActiveText,
                           ]}
                         >
-                          {item.completado ? "✅ Cubierta" : "🚨 Activa"}
+                          {item.completado
+                            ? item.modo === "OFERTA"
+                              ? "✅ Oferta Agotada"
+                              : "✅ Necesidad Cubierta"
+                            : item.modo === "OFERTA"
+                            ? "🎁 Oferta Activa"
+                            : "🚨 Solicitud Activa"}
                         </Text>
                       </View>
                       <Text style={styles.timeAgoText}>{getTimeAgo(item.creado_en)}</Text>
@@ -514,7 +520,7 @@ export default function MyNeedsScreen() {
                     <ProgressBar
                       current={item.progreso_actual}
                       total={item.meta_cantidad}
-                      unit={item.unidad_medida || "unidades"}
+                      unit={item.unidad_medida || (item.modo === "OFERTA" ? "unidades" : "ayudas")}
                       modo={item.modo}
                     />
                   </View>
@@ -547,7 +553,11 @@ export default function MyNeedsScreen() {
                           color="#FFFFFF"
                         />
                         <Text style={styles.toggleButtonText}>
-                          {item.completado ? "Reabrir" : "Marcar Cubierta"}
+                          {item.completado
+                            ? "Reabrir"
+                            : item.modo === "OFERTA"
+                            ? "Marcar Oferta como Agotada"
+                            : "Marcar Necesidad como Cubierta"}
                         </Text>
                       </TouchableOpacity>
 

@@ -22,6 +22,7 @@ import { CategoryBadge, TypeBadge, ModoBadge } from "../../src/components/Status
 import { ProgressBar } from "../../src/components/ProgressBar";
 import { COLORS } from "../../src/constants/theme";
 import { useAuth } from "../../src/context/AuthContext";
+import { supabase, isSupabaseConfigured } from "../../src/lib/supabase";
 import { ReliabilityBadge } from "../../src/components/ReliabilityBadge";
 import { StarRatingDisplay } from "../../src/components/StarRatingDisplay";
 import { CalificacionesList } from "../../src/components/CalificacionesList";
@@ -30,7 +31,6 @@ import {
   puedeCalificar,
   obtenerCalificacionesDeUsuario,
   obtenerPerfilConfiabilidad,
-  registrarContribucionAtomic,
   CalificacionItem,
   UserReliabilityProfile,
   RatingEligibilityStatus,
@@ -51,6 +51,20 @@ export default function DetailScreen() {
   const [eligibility, setEligibility] = useState<RatingEligibilityStatus>("no_elegible");
   const [existingRating, setExistingRating] = useState<CalificacionItem | null>(null);
   const [showRatingModal, setShowRatingModal] = useState(false);
+  const [hasSupportedLocal, setHasSupportedLocal] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!user?.id || !need?.id || !isSupabaseConfigured()) return;
+    supabase
+      .from("contribuciones")
+      .select("id")
+      .eq("necesidad_id", need.id)
+      .eq("usuario_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setHasSupportedLocal(Boolean(data));
+      });
+  }, [need?.id, user?.id]);
 
   useEffect(() => {
     async function loadItem() {
@@ -105,14 +119,14 @@ export default function DetailScreen() {
   const isCompleted = need.completado || need.progreso_actual >= need.meta_cantidad;
 
   const handleIncrement = async () => {
+    if (!need) return;
+    const willSupport = !hasSupportedLocal;
+    setHasSupportedLocal(willSupport);
     const res = await incrementNeedProgress(need.id, user?.id);
     if (res) {
       setNeed(res.need);
-      // Registrar contribución atómica si el usuario se suma por primera vez
-      if (user?.id && res.added && need.creador_id) {
-        registrarContribucionAtomic(need.id, user.id, 1)
-          .then(() => refreshRatingsAndProfile())
-          .catch((err) => console.log("Contribución info:", err));
+      if (res.added && need.creador_id) {
+        refreshRatingsAndProfile();
       }
     }
   };
@@ -133,7 +147,9 @@ export default function DetailScreen() {
     if (!hasWhatsApp) return;
     const rawNumber = need.contacto_whatsapp.replace(/\D/g, "");
     const cleanNumber = rawNumber.startsWith("57") ? rawNumber : `57${rawNumber}`;
-    const message = `Hola, vi tu solicitud en Hu-Manos Colombia: "${need.titulo}". Quiero ayudar. ¿Cómo coordinamos?`;
+    const message = need.modo === "OFERTA"
+      ? `Hola, vi tu oferta en Hu-Manos Colombia: "${need.titulo}". Me interesa este apoyo. ¿Cómo coordinamos?`
+      : `Hola, vi tu solicitud en Hu-Manos Colombia: "${need.titulo}". Quiero ayudar. ¿Cómo coordinamos?`;
     const whatsappUrl = `https://wa.me/${cleanNumber}?text=${encodeURIComponent(message)}`;
 
     try {
@@ -185,7 +201,9 @@ export default function DetailScreen() {
 
   const handleShare = async () => {
     if (!need) return;
-    const shareMessage = `🚨 *HU-MANO COLOMBIA* 🚨\n\n*Solicitud:* ${need.titulo}\n📍 *Ubicación:* ${need.ubicacion}\n📊 *Progreso:* ${need.progreso_actual} de ${need.meta_cantidad}\n\nVer evento en la app: https://hu-manos-colombia.app/detail/${need.id}`;
+    const shareMessage = need.modo === "OFERTA"
+      ? `🎁 *OFERTA DE APOYO - HU-MANOS COLOMBIA* 🎁\n\n*Oferta:* ${need.titulo}\n📍 *Ubicación:* ${need.ubicacion}\n📊 *Disponibilidad:* ${need.progreso_actual} de ${need.meta_cantidad} ${need.unidad_medida || "unidades"} reclamados\n\nVer oferta en la app: https://hu-manos-colombia.app/detail/${need.id}`
+      : `🚨 *HU-MANO COLOMBIA* 🚨\n\n*Solicitud:* ${need.titulo}\n📍 *Ubicación:* ${need.ubicacion}\n📊 *Progreso:* ${need.progreso_actual} de ${need.meta_cantidad}\n\nVer evento en la app: https://hu-manos-colombia.app/detail/${need.id}`;
     try {
       await Share.share({ title: need.titulo, message: shareMessage });
     } catch (e) {}
@@ -209,7 +227,9 @@ export default function DetailScreen() {
           <Ionicons name="arrow-back-sharp" size={22} color={COLORS.primary} />
           <Text style={styles.backButtonText}>Atrás</Text>
         </TouchableOpacity>
-        <Text style={styles.navBarTitle}>Detalle de Solicitud</Text>
+        <Text style={styles.navBarTitle}>
+          {need.modo === "OFERTA" ? "Detalle de Oferta" : "Detalle de Solicitud"}
+        </Text>
         <View style={{ width: 60 }} />
       </View>
 
@@ -253,7 +273,7 @@ export default function DetailScreen() {
           <ProgressBar
             current={need.progreso_actual}
             total={need.meta_cantidad}
-            unit={need.unidad_medida || "ayudas"}
+            unit={need.unidad_medida || (need.modo === "OFERTA" ? "unidades" : "ayudas")}
             isCompleted={isCompleted}
             modo={need.modo}
           />
@@ -295,13 +315,27 @@ export default function DetailScreen() {
         <View style={styles.actionSection}>
           {!isCompleted ? (
             <TouchableOpacity style={styles.sumoButton} onPress={handleIncrement}>
-              <Ionicons name="add-circle" size={20} color="#FFFFFF" />
-              <Text style={styles.sumoText}>Ofrecer Ayuda (+1 Me Sumo)</Text>
+              <Ionicons
+                name={hasSupportedLocal ? "checkmark-circle" : need.modo === "OFERTA" ? "download-outline" : "add-circle"}
+                size={20}
+                color="#FFFFFF"
+              />
+              <Text style={styles.sumoText}>
+                {need.modo === "OFERTA"
+                  ? hasSupportedLocal
+                    ? "✓ Ya Reservaste (Toca para cancelar)"
+                    : "📥 Lo necesito / Reservar"
+                  : hasSupportedLocal
+                  ? "✓ Ya Te Sumaste (Toca para remover)"
+                  : "🙋 Confirmar que voy a ayudar"}
+              </Text>
             </TouchableOpacity>
           ) : (
             <View style={styles.resolvedBanner}>
               <Ionicons name="checkmark-circle" size={22} color={COLORS.secondary} />
-              <Text style={styles.resolvedText}>¡Esta necesidad ha sido 100% Cubierta!</Text>
+              <Text style={styles.resolvedText}>
+                {need.modo === "OFERTA" ? "¡Esta oferta ha sido 100% Agotada!" : "¡Esta solicitud ha sido 100% Cubierta!"}
+              </Text>
             </View>
           )}
 
@@ -325,7 +359,9 @@ export default function DetailScreen() {
                 color={COLORS.textMuted}
               />
               <Text style={styles.toggleCompleteText}>
-                {isCompleted ? "Reactivar Solicitud" : "Marcar como Cubierto por el Creador"}
+                {isCompleted
+                  ? need.modo === "OFERTA" ? "Reabrir Oferta" : "Reactivar Solicitud"
+                  : need.modo === "OFERTA" ? "Marcar Oferta como Agotada por el Creador" : "Marcar como Cubierto por el Creador"}
               </Text>
             </TouchableOpacity>
           )}
@@ -377,7 +413,9 @@ export default function DetailScreen() {
               <View style={styles.eligibilityNotice}>
                 <Ionicons name="information-circle-outline" size={16} color={COLORS.textMuted} />
                 <Text style={styles.eligibilityText}>
-                  Solo los voluntarios con contribuciones confirmadas en este evento pueden calificar.
+                  {need.modo === "OFERTA"
+                    ? "Solo los beneficiarios con reservaciones confirmadas en esta oferta pueden calificar."
+                    : "Solo los voluntarios con contribuciones confirmadas en este evento pueden calificar."}
                 </Text>
               </View>
             )}
