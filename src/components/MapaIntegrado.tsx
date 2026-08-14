@@ -1,12 +1,19 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { Necesidad, CategoriaNecesidad } from "../types/need";
 import { COLORS, CATEGORY_CONFIGS } from "../constants/theme";
+import { PersonaMarker } from "./MapaIntegrado.types";
 
 interface MapaIntegradoProps {
   needs: Necesidad[];
   onSelectNeed?: (needId: string) => void;
+  /** Marcadores de personas (módulo reencuentro). Opcional y aditivo. */
+  personas?: PersonaMarker[];
+  /** Al tocar un marcador de persona. */
+  onSelectPersona?: (personaId: string) => void;
+  /** Alto del mapa en web (px). Permite "ampliar/reducir". Default 300. */
+  mapHeight?: number;
 }
 
 const CITY_COORDS_LOOKUP: Record<string, { lat: number; lng: number }> = {
@@ -59,7 +66,57 @@ export const getResolvedCoordinates = (need: Necesidad) => {
   };
 };
 
-export const MapaIntegrado: React.FC<MapaIntegradoProps> = ({ needs, onSelectNeed }) => {
+/** Genera el HTML de Leaflet para renderizar el mapa real en un iframe (web). */
+const generateWebLeafletHTML = (
+  markers: Array<{
+    id: string;
+    lat: number;
+    lng: number;
+    color: string;
+    emoji: string;
+    titulo: string;
+    ubicacion: string;
+    kind: string;
+  }>
+) => {
+  const markersJS = markers
+    .map((m) => {
+      const tipoMsg = m.kind === "persona" ? "openPersona" : "openDetail";
+      const btnLabel = m.kind === "persona" ? "Ver ficha ➔" : "Ver solicitud ➔";
+      const titulo = (m.titulo || "").replace(/'/g, "\\'").replace(/"/g, "&quot;");
+      const ubic = (m.ubicacion || "").replace(/'/g, "\\'").replace(/"/g, "&quot;");
+      return `
+      (function(){
+        var icon = L.divIcon({ className:'cm', html:'<div style="background:${m.color};width:26px;height:26px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 2px 6px rgba(0,0,0,.35)">${m.emoji}</div>', iconSize:[26,26], iconAnchor:[13,13], popupAnchor:[0,-14] });
+        L.marker([${m.lat}, ${m.lng}], { icon: icon }).addTo(map).bindPopup('<div style="font-family:sans-serif;min-width:170px"><div style="font-weight:800;font-size:13px;color:#0F172A;margin-bottom:4px">${m.emoji} ${titulo}</div><div style="font-size:11px;color:#1E40AF;font-weight:700;margin-bottom:6px">📍 ${ubic}</div><div onclick="parent.postMessage(JSON.stringify({type:\\'${tipoMsg}\\',id:\\'${m.id}\\'}),\\'*\\')" style="background:#1E40AF;color:#fff;text-align:center;padding:6px 0;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">${btnLabel}</div></div>');
+      })();`;
+    })
+    .join("\n");
+
+  const center = markers.length ? [markers[0].lat, markers[0].lng] : [4.8133, -75.6961];
+  return `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>*{margin:0;padding:0}html,body,#map{width:100%;height:100%}.cm{background:transparent!important;border:none!important}</style></head>
+<body><div id="map"></div><script>
+  var map = L.map('map').setView([${center[0]}, ${center[1]}], 12);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap',maxZoom:19}).addTo(map);
+  ${markersJS}
+  ${
+    markers.length > 1
+      ? `var b=L.latLngBounds([${markers.map((m) => `[${m.lat},${m.lng}]`).join(",")}]); if(b.isValid()) map.fitBounds(b,{padding:[30,30],maxZoom:14});`
+      : ""
+  }
+</script></body></html>`;
+};
+
+export const MapaIntegrado: React.FC<MapaIntegradoProps> = ({
+  needs,
+  onSelectNeed,
+  personas = [],
+  onSelectPersona,
+  mapHeight = 300,
+}) => {
   const router = useRouter();
   const [selectedNeed, setSelectedNeed] = useState<Necesidad | null>(needs[0] || null);
 
@@ -71,14 +128,65 @@ export const MapaIntegrado: React.FC<MapaIntegradoProps> = ({ needs, onSelectNee
     }
   };
 
+  // Escucha los clics de los popups del mapa (iframe) en web.
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.addEventListener) return;
+    const onMsg = (e: MessageEvent) => {
+      try {
+        const d = typeof e.data === "string" ? JSON.parse(e.data) : e.data;
+        if (d?.type === "openDetail" && d.id) {
+          handleOpenDetail(d.id);
+        } else if (d?.type === "openPersona" && d.id) {
+          if (onSelectPersona) onSelectPersona(d.id);
+          else router.push("/reencuentro/lista");
+        }
+      } catch {
+        /* mensaje ajeno al mapa */
+      }
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const mapMarkers = [
+    ...needs.map((need) => {
+      const coords = getResolvedCoordinates(need);
+      const isOferta = need.modo === "OFERTA";
+      return {
+        id: need.id,
+        lat: coords.latitude,
+        lng: coords.longitude,
+        color: isOferta ? "#059669" : getMarkerColor(need.categoria, need.completado),
+        emoji: isOferta ? "🤝" : CATEGORY_CONFIGS[need.categoria]?.emoji || "📌",
+        titulo: need.titulo || "Solicitud",
+        ubicacion: need.ubicacion || "Colombia",
+        kind: "need",
+      };
+    }),
+    ...(personas ?? []).map((p) => ({
+      id: p.id,
+      lat: p.lat,
+      lng: p.lng,
+      color: p.tipo === "ENCONTRADA" ? "#059669" : "#DC2626",
+      emoji: p.tipo === "ENCONTRADA" ? "✅" : "🔎",
+      titulo: p.nombre,
+      ubicacion: p.ubicacion || "Ubicación aproximada",
+      kind: "persona",
+    })),
+  ];
+  const mapHtml = generateWebLeafletHTML(mapMarkers);
+
   return (
     <View style={styles.container}>
-      {/* Banner Informativo para Web */}
-      <View style={styles.webNoticeCard}>
-        <Text style={styles.webNoticeTitle}>🗺️ Mapa Comunitario en Tiempo Real</Text>
-        <Text style={styles.webNoticeText}>
-          Vista de mapa integrada disponible en la app móvil (Android / iOS).
-        </Text>
+      {/* Mapa real (Leaflet + OSM), también en web */}
+      <View style={[styles.mapWrap, { height: mapHeight }]}>
+        <iframe
+          key={mapHeight}
+          title="Mapa"
+          srcDoc={mapHtml}
+          style={{ width: "100%", height: "100%", border: "none" }}
+        />
       </View>
 
       {/* Leyenda de Colores */}
@@ -105,6 +213,31 @@ export const MapaIntegrado: React.FC<MapaIntegradoProps> = ({ needs, onSelectNee
 
       {/* Marcadores Interactivos para Navegador */}
       <ScrollView contentContainerStyle={styles.webScroll}>
+        {(personas ?? []).map((p) => {
+          const color = p.tipo === "ENCONTRADA" ? "#059669" : "#DC2626";
+          return (
+            <TouchableOpacity
+              key={`persona-${p.id}`}
+              activeOpacity={0.8}
+              style={[styles.webPinCard, { borderLeftColor: color }]}
+              onPress={() => (onSelectPersona ? onSelectPersona(p.id) : router.push("/reencuentro/lista"))}
+              testID={`mapa-persona-${p.id}`}
+            >
+              <View style={styles.webPinHeader}>
+                <View style={[styles.webPinBadge, { backgroundColor: color }]}>
+                  <Text style={{ color: "#FFF", fontSize: 11, fontWeight: "800" }}>
+                    {p.tipo === "ENCONTRADA" ? "✅" : "🔎"} {p.tipo}
+                  </Text>
+                </View>
+                <Text style={styles.webPinCoords}>
+                  {p.lat.toFixed(3)}, {p.lng.toFixed(3)}
+                </Text>
+              </View>
+              <Text style={styles.webPinTitle}>{p.nombre}</Text>
+              {p.ubicacion ? <Text style={styles.webPinLocation}>📍 {p.ubicacion}</Text> : null}
+            </TouchableOpacity>
+          );
+        })}
         {needs.map((need) => {
           const color = getMarkerColor(need.categoria, need.completado);
           const catConfig = CATEGORY_CONFIGS[need.categoria];
@@ -159,6 +292,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F8FAFC",
+  },
+  mapWrap: {
+    height: 300,
+    backgroundColor: "#E5E7EB",
   },
   webNoticeCard: {
     backgroundColor: "#EFF6FF",

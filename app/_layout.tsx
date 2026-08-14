@@ -67,6 +67,15 @@ export default function RootLayout() {
                   headerTintColor: COLORS.primary,
                 }}
               />
+              <Stack.Screen
+                name="reencuentro/mapa"
+                options={{
+                  headerShown: true,
+                  title: "Mapa de personas y servicios",
+                  headerBackTitle: "Atrás",
+                  headerTintColor: COLORS.primary,
+                }}
+              />
             </Stack>
           </NotificationProvider>
         </AuthProvider>
