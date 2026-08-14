@@ -3,6 +3,7 @@ import {
   sonPosiblesDuplicados,
   candidatosDuplicados,
   puedeMarcarDuplicado,
+  agruparDuplicados,
 } from "../dedup";
 import { ReportePersona } from "../types";
 
@@ -83,5 +84,23 @@ describe("puedeMarcarDuplicado", () => {
     expect(
       puedeMarcarDuplicado(rep({ id: "dup", estado: "RESUELTO" }), maestro, ["COORDINADOR"]).ok
     ).toBe(false);
+  });
+});
+
+describe("agruparDuplicados", () => {
+  it("agrupa similares con el más antiguo como maestro", () => {
+    const viejo = rep({ id: "viejo", nombre: "José Pérez", edadAprox: 30, creadoEn: "2026-08-10T00:00:00.000Z" });
+    const nuevo = rep({ id: "nuevo", nombre: "Jose Perez", edadAprox: 30, creadoEn: "2026-08-12T00:00:00.000Z" });
+    const otro = rep({ id: "otro", nombre: "Marta Díaz", edadAprox: 70 });
+
+    const grupos = agruparDuplicados([nuevo, otro, viejo]);
+    expect(grupos).toHaveLength(1);
+    expect(grupos[0].maestro.id).toBe("viejo");
+    expect(grupos[0].duplicados.map((d) => d.id)).toEqual(["nuevo"]);
+  });
+
+  it("no agrupa reportes únicos", () => {
+    const grupos = agruparDuplicados([rep({ id: "a", nombre: "Ana Ruiz" }), rep({ id: "b", nombre: "Beto Gómez" })]);
+    expect(grupos).toEqual([]);
   });
 });

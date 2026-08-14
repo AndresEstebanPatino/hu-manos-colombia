@@ -15,4 +15,16 @@ export class SupabaseReportMutation implements ReportMutationPort {
       .eq("id", id);
     if (error) throw new Error(error.message);
   }
+
+  async marcarDuplicado(id: string, maestroId: string): Promise<void> {
+    const { error } = await supabase
+      .from("reencuentro_reportes")
+      .update({
+        estado: "DUPLICADO",
+        maestro_id: maestroId,
+        actualizado_en: new Date().toISOString(),
+      })
+      .eq("id", id);
+    if (error) throw new Error(error.message);
+  }
 }

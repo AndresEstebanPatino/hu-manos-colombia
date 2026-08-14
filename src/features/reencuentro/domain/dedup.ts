@@ -59,6 +59,34 @@ export function candidatosDuplicados(
     .sort((x, y) => puntajeSimilitud(reporte, y) - puntajeSimilitud(reporte, x));
 }
 
+/** Un grupo de posibles duplicados: un maestro (el más antiguo) y sus duplicados. */
+export interface GrupoDuplicados {
+  maestro: ReportePersona;
+  duplicados: ReportePersona[];
+}
+
+/**
+ * Agrupa reportes en clusters de posibles duplicados (greedy). El maestro de cada
+ * grupo es el más antiguo (menor `creadoEn`); los demás son candidatos a marcar como
+ * DUPLICADO. Solo devuelve grupos con al menos un duplicado.
+ */
+export function agruparDuplicados(reportes: ReportePersona[], umbral = 0.5): GrupoDuplicados[] {
+  const orden = [...reportes].sort((a, b) => a.creadoEn.localeCompare(b.creadoEn));
+  const usados = new Set<string>();
+  const grupos: GrupoDuplicados[] = [];
+  for (const maestro of orden) {
+    if (usados.has(maestro.id)) continue;
+    const duplicados = orden.filter(
+      (o) => o.id !== maestro.id && !usados.has(o.id) && sonPosiblesDuplicados(maestro, o, umbral)
+    );
+    if (duplicados.length === 0) continue;
+    usados.add(maestro.id);
+    duplicados.forEach((d) => usados.add(d.id));
+    grupos.push({ maestro, duplicados });
+  }
+  return grupos;
+}
+
 /**
  * ¿Puede el actor marcar `reporte` como DUPLICADO de `maestro`?
  * Solo COORDINADOR, mismo tipo, distinto id, y el estado debe permitir la transición.
