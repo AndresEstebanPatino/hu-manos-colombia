@@ -21,6 +21,20 @@ const safeAsyncStorage = {
 };
 
 /**
+ * Genera un UUID v4 estándar seguro para PostgreSQL
+ */
+export const generateUUID = (): string => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
+/**
  * Sanitiza números telefónicos para WhatsApp con prefijo de Colombia (+57)
  */
 export const formatWhatsAppNumber = (phoneRaw: string): string => {
@@ -126,7 +140,7 @@ export const createNeed = async (
   const newNeed: Necesidad = {
     ...newNeedData,
     modo: newNeedData.modo || "SOLICITUD",
-    id: `need-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    id: generateUUID(),
     contacto_whatsapp: formatWhatsAppNumber(newNeedData.contacto_whatsapp),
     progreso_actual: 0,
     completado: false,
@@ -187,20 +201,21 @@ export const createNeed = async (
 
     // 4. Agregar inmediatamente la notificación global en la tabla 'notificaciones' para la campana 🔔
     try {
-      const isUuid = (val?: string | null) =>
-        typeof val === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
-
-      await supabase.from("notificaciones").insert([
+      const { error: notifErr } = await supabase.from("notificaciones").insert([
         {
           titulo: "🚨 Nueva solicitud creada",
           mensaje: `${newNeed.titulo} en ${newNeed.ubicacion}`,
           tipo: "NUEVO_EVENTO",
-          necesidad_id: isUuid(newNeed.id) ? newNeed.id : null,
-          creado_por: isUuid(validUserId) ? validUserId : null,
+          necesidad_id: newNeed.id,
+          creado_por: validUserId || null,
         },
       ]);
+
+      if (notifErr) {
+        console.error("❌ ERROR AL INSERTAR NOTIFICACIÓN EN SUPABASE:", notifErr.message, notifErr.details, notifErr.hint);
+      }
     } catch (notifErr) {
-      console.log("Info notificación:", notifErr);
+      console.error("❌ Excepción inesperada al crear notificación:", notifErr);
     }
   }
 
@@ -240,6 +255,58 @@ export const deleteNeed = async (id: string, userId?: string): Promise<boolean> 
   } catch (error) {
     console.error("Error al eliminar necesidad:", error);
     return false;
+  }
+};
+
+/**
+ * Notifica al creador de una necesidad cuando un usuario se suma o la reserva.
+ * Inserta en la tabla 'notificaciones' e invoca el Edge Function 'send-push-notification'.
+ * Previene la auto-notificación si el creador es el mismo usuario que confirma.
+ */
+export const notifyCreatorOnContribution = async (need: Necesidad, actorUserId?: string) => {
+  if (!need.creador_id || (actorUserId && need.creador_id === actorUserId) || !isSupabaseConfigured()) {
+    return;
+  }
+
+  const isUuid = (val?: string | null) =>
+    typeof val === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
+  const isOferta = need.modo === "OFERTA";
+  const notifTitle = isOferta ? "📥 Reserva en tu oferta" : "🙋 Nueva ayuda para tu solicitud";
+  const notifMsg = isOferta
+    ? `📥 Alguien necesita tu oferta de "${need.titulo}"`
+    : `🙋 Alguien confirmó que va a ayudarte con "${need.titulo}"`;
+
+  // 1. Inserción en la tabla 'notificaciones' dirigida al creador
+  try {
+    await supabase.from("notificaciones").insert([
+      {
+        titulo: notifTitle,
+        mensaje: notifMsg,
+        tipo: "CONTRIBUCION",
+        necesidad_id: need.id || null,
+        creado_por: need.creador_id || null,
+      },
+    ]);
+  } catch (err) {
+    console.warn("Info notificación a creador:", err);
+  }
+
+  // 2. Invocación a Edge Function 'send-push-notification' dirigida al creador
+  try {
+    await supabase.functions.invoke("send-push-notification", {
+      body: {
+        type: "CONTRIBUCION",
+        record: {
+          necesidad_id: need.id,
+          titulo: need.titulo,
+          modo: need.modo || "SOLICITUD",
+          creador_id: need.creador_id,
+        },
+      },
+    });
+  } catch (pushErr) {
+    console.warn("Excepción al enviar push a creador:", pushErr);
   }
 };
 
@@ -289,8 +356,10 @@ export const incrementNeedProgress = async (
             ? [...(current.apoyantes_ids || []), userId]
             : (current.apoyantes_ids || []).filter((uid) => uid !== userId),
         };
-        existingNeeds[index] = updatedItem;
-        await safeAsyncStorage.setItem(STORAGE_KEY, JSON.stringify(existingNeeds));
+        if (added) {
+          notifyCreatorOnContribution(current, userId);
+        }
+
         return { need: updatedItem, added };
       }
 
@@ -335,7 +404,7 @@ export const incrementNeedProgress = async (
             if (error) console.warn("Supabase update progreso (fallback):", error.message);
           });
 
-        // INSERT a contribuciones (si es toggle ON)
+        // INSERT a contribuciones y notificar al creador (si es toggle ON)
         if (added) {
           supabase
             .from("contribuciones")
@@ -343,6 +412,7 @@ export const incrementNeedProgress = async (
             .then(({ error }) => {
               if (error) console.warn("Insert contribuciones (fallback):", error.message);
             });
+          notifyCreatorOnContribution(current, userId);
         }
 
         return { need: updatedItem, added };

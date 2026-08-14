@@ -77,8 +77,9 @@ export default function FeedScreen() {
     loadData();
 
     if (isSupabaseConfigured()) {
+      const channelName = `realtime-necesidades-${Math.random().toString(36).substring(2, 9)}`;
       const channel = supabase
-        .channel("realtime-necesidades")
+        .channel(channelName)
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "necesidades" },

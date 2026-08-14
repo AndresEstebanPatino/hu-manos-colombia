@@ -20,10 +20,13 @@ import { useNotifications } from "../context/NotificationContext";
 import { useAuth } from "../context/AuthContext";
 import { ReliabilityBadge } from "./ReliabilityBadge";
 import { ReportModal } from "./ReportModal";
+import { ConfirmarAyudaModal } from "./ConfirmarAyudaModal";
 import {
   obtenerPerfilConfiabilidad,
+  guardarLogisticaContribucion,
   UserReliabilityProfile,
 } from "../services/reliabilityService";
+import { ContribucionLogistica } from "../types/need";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
 
 interface NeedCardProps {
@@ -48,7 +51,8 @@ export const NeedCard: React.FC<NeedCardProps> = ({
   const [votosIds, setVotosIds] = useState<string[]>(need.voto_confianza_ids || []);
   const [spamCount, setSpamCount] = useState<number>(need.reportes_spam || 0);
   const [creatorProfile, setCreatorProfile] = React.useState<UserReliabilityProfile | null>(null);
-  const [showReportModal, setShowReportModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState<boolean>(false);
+  const [showConfirmModal, setShowConfirmModal] = useState<boolean>(false);
 
   // hasSupported: ¿el usuario actual ya reservó/se sumó a esta necesidad?
   // Se inicializa desde apoyantes_ids (disponible tras la migración SQL) y se
@@ -193,13 +197,39 @@ export const NeedCard: React.FC<NeedCardProps> = ({
       return;
     }
 
-    // Actualización optimista en UI: toggle del botón antes de que el servidor responda
-    const willSupport = !hasSupportedLocal;
-    setHasSupportedLocal(willSupport);
+    // Si YA había apoyado (toggle OFF / cancelar reserva): ejecutar de inmediato sin modal
+    if (hasSupportedLocal) {
+      setHasSupportedLocal(false);
+      onIncrement(need.id, userId);
+      return;
+    }
 
-    // incrementNeedProgress ya llama a la RPC atómica internamente (o su fallback).
-    // No llamar registrarContribucionAtomic por separado para evitar doble escritura.
+    // Si NO ha apoyado aún (toggle ON): abrir el modal opcional de logística
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmWithoutDetails = () => {
+    const userId = user?.id;
+    if (!userId) return;
+    setShowConfirmModal(false);
+    setHasSupportedLocal(true);
     onIncrement(need.id, userId);
+  };
+
+  const handleConfirmWithDetails = async (logistica: ContribucionLogistica) => {
+    const userId = user?.id;
+    if (!userId) return;
+    setShowConfirmModal(false);
+    setHasSupportedLocal(true);
+    onIncrement(need.id, userId);
+    const success = await guardarLogisticaContribucion(need.id, userId, logistica);
+    if (!success) {
+      showToast(
+        "✅ Ayuda confirmada",
+        "Tu ayuda quedó confirmada, pero no pudimos guardar los detalles de logística. Puedes coordinar por WhatsApp.",
+        "alert"
+      );
+    }
   };
 
   const handleConfirmDelete = () => {
@@ -445,6 +475,16 @@ export const NeedCard: React.FC<NeedCardProps> = ({
             setSpamCount(newCount);
           }
         }}
+      />
+
+      {/* Modal opcional de logística y coordinación */}
+      <ConfirmarAyudaModal
+        visible={showConfirmModal}
+        modo={need.modo}
+        tituloNecesidad={need.titulo}
+        onClose={() => setShowConfirmModal(false)}
+        onConfirmWithoutDetails={handleConfirmWithoutDetails}
+        onConfirmWithDetails={handleConfirmWithDetails}
       />
     </View>
   );
