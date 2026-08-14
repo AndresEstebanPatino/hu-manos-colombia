@@ -12,6 +12,15 @@ import { COLORS } from "../../src/constants/theme";
 const query = new SupabaseReportsQuery();
 type Filtro = "TODO" | "SERVICIOS" | "PERSONAS";
 
+// DEMO: personas de ejemplo con coordenadas (Chocó/Putumayo) para ver marcadores
+// mientras no haya reportes reales con GPS. Poner MOSTRAR_DEMO=false o quitar antes de producción.
+const MOSTRAR_DEMO = true;
+const DEMO_PERSONAS: PersonaMarker[] = [
+  { id: "demo-1", lat: 5.6947, lng: -76.6611, nombre: "María Mosquera (demo)", tipo: "BUSCADA", ubicacion: "Quibdó, Chocó" },
+  { id: "demo-2", lat: 6.2308, lng: -77.4028, nombre: "Carlos Rentería (demo)", tipo: "BUSCADA", ubicacion: "Bahía Solano, Chocó" },
+  { id: "demo-3", lat: 1.1478, lng: -76.6491, nombre: "Persona identificada (demo)", tipo: "ENCONTRADA", ubicacion: "Mocoa, Putumayo" },
+];
+
 /**
  * Mapa unificado: servicios (needs) + personas de reencuentro (BUSCADA/ENCONTRADA)
  * en el mismo mapa (reutiliza MapaIntegrado), con filtro. Las personas sin
@@ -22,6 +31,7 @@ export default function MapaRoute() {
   const [needs, setNeeds] = useState<Necesidad[]>([]);
   const [personas, setPersonas] = useState<PersonaMarker[]>([]);
   const [filtro, setFiltro] = useState<Filtro>("TODO");
+  const [ampliado, setAmpliado] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -41,6 +51,7 @@ export default function MapaRoute() {
 
   const showNeeds = filtro === "TODO" || filtro === "SERVICIOS";
   const showPersonas = filtro === "TODO" || filtro === "PERSONAS";
+  const personasMapa = [...(MOSTRAR_DEMO ? DEMO_PERSONAS : []), ...personas];
 
   const filtros: { key: Filtro; label: string }[] = [
     { key: "TODO", label: "Todo" },
@@ -62,10 +73,19 @@ export default function MapaRoute() {
             <Text style={[styles.chipTxt, filtro === f.key && styles.chipTxtActivo]}>{f.label}</Text>
           </Pressable>
         ))}
+        <Pressable
+          testID="mapa-ampliar"
+          style={[styles.chip, styles.ampliar]}
+          onPress={() => setAmpliado((v) => !v)}
+          accessibilityRole="button"
+        >
+          <Text style={styles.chipTxt}>{ampliado ? "Reducir ✕" : "Ampliar ⤢"}</Text>
+        </Pressable>
       </View>
       <MapaIntegrado
         needs={showNeeds ? needs : []}
-        personas={showPersonas ? personas : []}
+        personas={showPersonas ? personasMapa : []}
+        mapHeight={ampliado ? 560 : 300}
         onSelectNeed={(id) => router.push(`/detail/${id}`)}
         onSelectPersona={() => router.push("/reencuentro/lista")}
       />
@@ -87,4 +107,5 @@ const styles = StyleSheet.create({
   chipActivo: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
   chipTxt: { color: COLORS.text, fontWeight: "600", fontSize: 13 },
   chipTxtActivo: { color: "#fff" },
+  ampliar: { marginLeft: "auto", borderColor: COLORS.primary },
 });

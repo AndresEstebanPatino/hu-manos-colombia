@@ -12,6 +12,8 @@ interface MapaIntegradoProps {
   personas?: PersonaMarker[];
   /** Al tocar un marcador de persona. */
   onSelectPersona?: (personaId: string) => void;
+  /** Alto del mapa en web (px). Permite "ampliar/reducir". Default 300. */
+  mapHeight?: number;
 }
 
 const CITY_COORDS_LOOKUP: Record<string, { lat: number; lng: number }> = {
@@ -113,6 +115,7 @@ export const MapaIntegrado: React.FC<MapaIntegradoProps> = ({
   onSelectNeed,
   personas = [],
   onSelectPersona,
+  mapHeight = 300,
 }) => {
   const router = useRouter();
   const [selectedNeed, setSelectedNeed] = useState<Necesidad | null>(needs[0] || null);
@@ -177,8 +180,13 @@ export const MapaIntegrado: React.FC<MapaIntegradoProps> = ({
   return (
     <View style={styles.container}>
       {/* Mapa real (Leaflet + OSM), también en web */}
-      <View style={styles.mapWrap}>
-        <iframe title="Mapa" srcDoc={mapHtml} style={{ width: "100%", height: "100%", border: "none" }} />
+      <View style={[styles.mapWrap, { height: mapHeight }]}>
+        <iframe
+          key={mapHeight}
+          title="Mapa"
+          srcDoc={mapHtml}
+          style={{ width: "100%", height: "100%", border: "none" }}
+        />
       </View>
 
       {/* Leyenda de Colores */}
