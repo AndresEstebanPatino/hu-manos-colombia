@@ -43,7 +43,11 @@ export default function ReencuentroTab() {
       </View>
       <FormularioCaptura
         creadoPorId={user?.id ?? "anonimo"}
-        onCrear={service.crear}
+        onCrear={async (input) => {
+          const res = await service.crear(input);
+          void service.sync.sync(); // sube apenas se captura; si no hay red, queda en cola
+          return res;
+        }}
         locationProvider={locationProvider}
         geocoder={geocoder}
         onSubirFoto={() => elegirYSubirFoto("GALERIA")}
