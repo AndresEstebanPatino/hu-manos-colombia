@@ -403,6 +403,21 @@ export default function CreateNeedScreen() {
                 <Ionicons name="checkmark-circle" size={20} color="#059669" />
               ) : null}
             </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={[styles.modoOptionCard, styles.modoOptionCardPersona]}
+              onPress={() => router.push("/reencuentro")}
+            >
+              <Text style={styles.modoIconEmoji}>🔎</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.modoTitleText, styles.modoTitleTextPersona]}>
+                  Reportar Persona
+                </Text>
+                <Text style={styles.modoDescText}>Buscar o reportar a alguien (Reencuentro)</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={COLORS.primary} />
+            </TouchableOpacity>
           </View>
 
           {/* Selector de Tipo (Recurso vs Voluntario) */}
@@ -811,6 +826,13 @@ const styles = StyleSheet.create({
   modoOptionCardOferta: {
     backgroundColor: "#ECFDF5",
     borderColor: "#A7F3D0",
+  },
+  modoOptionCardPersona: {
+    backgroundColor: COLORS.primaryLight,
+    borderColor: COLORS.primary,
+  },
+  modoTitleTextPersona: {
+    color: COLORS.primary,
   },
   modoIconEmoji: {
     fontSize: 24,
