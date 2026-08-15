@@ -13,13 +13,14 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "../constants/theme";
 import { ModoNecesidad, TipoEntrega, ContribucionLogistica } from "../types/need";
+import { formatWhatsAppNumber } from "../services/storage";
 
 interface ConfirmarAyudaModalProps {
   visible: boolean;
   modo?: ModoNecesidad;
   tituloNecesidad: string;
   onClose: () => void;
-  onConfirmWithoutDetails: () => void;
+  onConfirmWithoutDetails?: () => void;
   onConfirmWithDetails: (logistica: ContribucionLogistica) => void;
 }
 
@@ -28,17 +29,26 @@ export const ConfirmarAyudaModal: React.FC<ConfirmarAyudaModalProps> = ({
   modo = "SOLICITUD",
   tituloNecesidad,
   onClose,
-  onConfirmWithoutDetails,
   onConfirmWithDetails,
 }) => {
   const isOferta = modo === "OFERTA";
 
+  const [contactoWhatsapp, setContactoWhatsapp] = useState("");
   const [tipoEntrega, setTipoEntrega] = useState<TipoEntrega | undefined>(undefined);
   const [ubicacionContacto, setUbicacionContacto] = useState("");
   const [notasLogistica, setNotasLogistica] = useState("");
 
-  const handleConfirmWithDetails = () => {
+  const rawDigits = contactoWhatsapp.replace(/\D/g, "");
+  const mobileDigits = rawDigits.startsWith("57") && rawDigits.length === 12
+    ? rawDigits.slice(2)
+    : rawDigits;
+  const isWhatsappValid = mobileDigits.length === 10 && mobileDigits.startsWith("3");
+
+  const handleConfirm = () => {
+    if (!isWhatsappValid) return;
+
     onConfirmWithDetails({
+      contacto_whatsapp_colaborador: formatWhatsAppNumber(contactoWhatsapp.trim()),
       tipo_entrega: tipoEntrega,
       ubicacion_contacto: ubicacionContacto.trim() || undefined,
       notas_logistica: notasLogistica.trim() || undefined,
@@ -46,12 +56,8 @@ export const ConfirmarAyudaModal: React.FC<ConfirmarAyudaModalProps> = ({
     resetForm();
   };
 
-  const handleConfirmWithoutDetails = () => {
-    onConfirmWithoutDetails();
-    resetForm();
-  };
-
   const resetForm = () => {
+    setContactoWhatsapp("");
     setTipoEntrega(undefined);
     setUbicacionContacto("");
     setNotasLogistica("");
@@ -73,7 +79,7 @@ export const ConfirmarAyudaModal: React.FC<ConfirmarAyudaModalProps> = ({
           <View style={styles.headerRow}>
             <View style={styles.headerTitleGroup}>
               <Text style={styles.modalTitle}>
-                ¿Cómo prefieres coordinar? (Opcional)
+                {isOferta ? "Confirmar reserva de oferta" : "Confirmar ayuda a la necesidad"}
               </Text>
             </View>
             <TouchableOpacity
@@ -93,7 +99,7 @@ export const ConfirmarAyudaModal: React.FC<ConfirmarAyudaModalProps> = ({
           {/* 🔒 AVISO DE PRIVACIDAD OBLIGATORIO Y TRANSPARENTE */}
           <View style={styles.privacyNoticeCard}>
             <Text style={styles.privacyNoticeText}>
-              🔒 Esta información solo la verá quien publicó la {isOferta ? "oferta" : "solicitud"}, para ayudar a coordinar el encuentro. No se hace pública ni la ven otros usuarios.
+              🔒 Tu número de WhatsApp solo lo verá quien publicó la {isOferta ? "oferta" : "solicitud"}, para coordinar la entrega. No se muestra de forma pública a otros usuarios.
             </Text>
           </View>
 
@@ -102,7 +108,26 @@ export const ConfirmarAyudaModal: React.FC<ConfirmarAyudaModalProps> = ({
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            {/* Chips de Selección: Tipo de Entrega / Encuentro */}
+            {/* Campo OBLIGATORIO: Número de WhatsApp */}
+            <Text style={styles.inputLabel}>
+              Tu celular con WhatsApp * <Text style={styles.requiredText}>(Obligatorio para coordinar)</Text>
+            </Text>
+            <View style={[styles.inputWrap, !isWhatsappValid && contactoWhatsapp.length > 0 && styles.inputError]}>
+              <Ionicons name="logo-whatsapp" size={18} color={COLORS.whatsappGreen} style={styles.inputIcon} />
+              <View style={styles.countryCodeBadge}>
+                <Text style={styles.countryCodeBadgeText}>🇨🇴 +57</Text>
+              </View>
+              <TextInput
+                style={styles.textInput}
+                placeholder="3125550192"
+                placeholderTextColor="#94A3B8"
+                keyboardType="phone-pad"
+                value={contactoWhatsapp}
+                onChangeText={setContactoWhatsapp}
+              />
+            </View>
+
+            {/* Chips de Selección: Tipo de Entrega / Encuentro (Opcional) */}
             <Text style={styles.inputLabel}>Opción de entrega o encuentro (Opcional)</Text>
             <View style={styles.chipsRow}>
               <TouchableOpacity
@@ -145,7 +170,7 @@ export const ConfirmarAyudaModal: React.FC<ConfirmarAyudaModalProps> = ({
               </TouchableOpacity>
             </View>
 
-            {/* Campo 1: Punto de referencia o dirección */}
+            {/* Campo 1: Punto de referencia o dirección (Opcional) */}
             <Text style={styles.inputLabel}>Punto de referencia o dirección (Opcional)</Text>
             <View style={styles.inputWrap}>
               <Ionicons name="location-outline" size={18} color={COLORS.textMuted} style={styles.inputIcon} />
@@ -158,7 +183,7 @@ export const ConfirmarAyudaModal: React.FC<ConfirmarAyudaModalProps> = ({
               />
             </View>
 
-            {/* Campo 2: Notas adicionales de logística */}
+            {/* Campo 2: Notas adicionales de logística (Opcional) */}
             <Text style={styles.inputLabel}>Notas adicionales para el creador (Opcional)</Text>
             <View style={[styles.inputWrap, styles.textAreaWrap]}>
               <TextInput
@@ -172,29 +197,24 @@ export const ConfirmarAyudaModal: React.FC<ConfirmarAyudaModalProps> = ({
               />
             </View>
 
-            {/* ══ DOS BOTONES VISUALMENTE PROMINENTES AL MISMO NIVEL ══ */}
-            <View style={styles.dualButtonsContainer}>
-              {/* Botón 1: Confirmar SIN detalles */}
+            {/* BOTÓN ÚNICO OBLIGATORIO (Deshabilitado si WhatsApp no es válido) */}
+            <View style={styles.singleButtonContainer}>
               <TouchableOpacity
                 activeOpacity={0.85}
-                style={styles.btnSecondaryEqual}
-                onPress={handleConfirmWithoutDetails}
-              >
-                <Ionicons name="flash-outline" size={18} color={COLORS.primary} />
-                <Text style={styles.btnSecondaryText}>Confirmar sin detalles</Text>
-              </TouchableOpacity>
-
-              {/* Botón 2: Confirmar CON detalles */}
-              <TouchableOpacity
-                activeOpacity={0.85}
-                style={styles.btnPrimaryEqual}
-                onPress={handleConfirmWithDetails}
+                style={[styles.btnPrimaryEqual, !isWhatsappValid && styles.btnDisabled]}
+                onPress={handleConfirm}
+                disabled={!isWhatsappValid}
               >
                 <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" />
                 <Text style={styles.btnPrimaryText}>
-                  {isOferta ? "Confirmar reserva" : "Confirmar ayuda"}
+                  {isOferta ? "Confirmar reserva con WhatsApp" : "Confirmar ayuda con WhatsApp"}
                 </Text>
               </TouchableOpacity>
+              {!isWhatsappValid && (
+                <Text style={styles.hintRequiredText}>
+                  ⚠️ Ingresa tu WhatsApp para habilitar la confirmación.
+                </Text>
+              )}
             </View>
           </ScrollView>
         </View>
@@ -271,6 +291,23 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     marginTop: 4,
   },
+  requiredText: {
+    fontSize: 11,
+    color: COLORS.primary,
+    fontWeight: "600",
+  },
+  countryCodeBadge: {
+    backgroundColor: "#E2E8F0",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  countryCodeBadgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.text,
+  },
   chipsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -309,6 +346,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     minHeight: 44,
   },
+  inputError: {
+    borderColor: "#EF4444",
+    backgroundColor: "#FEF2F2",
+  },
   inputIcon: {
     marginRight: 8,
   },
@@ -325,26 +366,10 @@ const styles = StyleSheet.create({
   textArea: {
     textAlignVertical: "top",
   },
-  dualButtonsContainer: {
+  singleButtonContainer: {
     flexDirection: "column",
-    gap: 10,
+    gap: 6,
     marginTop: 14,
-  },
-  btnSecondaryEqual: {
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: "#EFF6FF",
-    borderWidth: 1.5,
-    borderColor: COLORS.primary,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  btnSecondaryText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: COLORS.primary,
   },
   btnPrimaryEqual: {
     height: 48,
@@ -355,9 +380,20 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
   },
+  btnDisabled: {
+    backgroundColor: "#94A3B8",
+    opacity: 0.6,
+  },
   btnPrimaryText: {
     fontSize: 14,
     fontWeight: "700",
     color: "#FFFFFF",
+  },
+  hintRequiredText: {
+    fontSize: 11,
+    color: "#DC2626",
+    textAlign: "center",
+    fontWeight: "600",
+    marginTop: 2,
   },
 });

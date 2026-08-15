@@ -1,3 +1,4 @@
+import { Alert } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Necesidad, CategoriaNecesidad } from "../types/need";
 import { INITIAL_MOCK_NEEDS } from "../data/mockNeeds";
@@ -38,14 +39,16 @@ export const generateUUID = (): string => {
  * Sanitiza números telefónicos para WhatsApp con prefijo de Colombia (+57)
  */
 export const formatWhatsAppNumber = (phoneRaw: string): string => {
+  if (!phoneRaw) return "";
   const digitsOnly = phoneRaw.replace(/\D/g, "");
+  if (!digitsOnly) return "";
   if (digitsOnly.startsWith("57") && digitsOnly.length >= 12) {
     return `+${digitsOnly}`;
   }
   if (digitsOnly.length === 10) {
     return `+57${digitsOnly}`;
   }
-  return digitsOnly ? `+57${digitsOnly}` : "+573000000000";
+  return `+57${digitsOnly}`;
 };
 
 /**
@@ -201,10 +204,16 @@ export const createNeed = async (
 
     // 4. Agregar inmediatamente la notificación global en la tabla 'notificaciones' para la campana 🔔
     try {
+      const isOferta = newNeed.modo === "OFERTA";
+      const notifTitle = isOferta
+        ? `🤝 Nueva oferta disponible: ${newNeed.titulo}`
+        : `🚨 Nueva solicitud: ${newNeed.titulo}`;
+      const notifMsg = newNeed.ubicacion ? `Ubicación: ${newNeed.ubicacion}` : `${newNeed.titulo}`;
+
       const { error: notifErr } = await supabase.from("notificaciones").insert([
         {
-          titulo: "🚨 Nueva solicitud creada",
-          mensaje: `${newNeed.titulo} en ${newNeed.ubicacion}`,
+          titulo: notifTitle,
+          mensaje: notifMsg,
           tipo: "NUEVO_EVENTO",
           necesidad_id: newNeed.id,
           creado_por: validUserId || null,
@@ -268,14 +277,11 @@ export const notifyCreatorOnContribution = async (need: Necesidad, actorUserId?:
     return;
   }
 
-  const isUuid = (val?: string | null) =>
-    typeof val === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
-
   const isOferta = need.modo === "OFERTA";
   const notifTitle = isOferta ? "📥 Reserva en tu oferta" : "🙋 Nueva ayuda para tu solicitud";
   const notifMsg = isOferta
-    ? `📥 Alguien necesita tu oferta de "${need.titulo}"`
-    : `🙋 Alguien confirmó que va a ayudarte con "${need.titulo}"`;
+    ? `📥 Alguien necesita tu oferta de '${need.titulo}'`
+    : `🙋 Alguien confirmó que va a ayudarte con '${need.titulo}'`;
 
   // 1. Inserción en la tabla 'notificaciones' dirigida al creador
   try {
@@ -332,6 +338,16 @@ export const incrementNeedProgress = async (
     if (index === -1) return null;
 
     const current = existingNeeds[index];
+
+    // Bloquear auto-confirmación si el usuario es el creador de la publicación
+    if (userId && current.creador_id === userId) {
+      Alert.alert(
+        "Acción no permitida",
+        "No puedes confirmar ayuda en tu propia publicación."
+      );
+      return null;
+    }
+
     const effectiveUserId = userId || "anonymous-user";
 
     // ── MODO ONLINE: delegar a la RPC atómica ─────────────────────────────
@@ -363,9 +379,16 @@ export const incrementNeedProgress = async (
         return { need: updatedItem, added };
       }
 
-      // RPC falló (ej. migración aún no aplicada): intentar UPDATE directo más
-      // consulta a contribuciones para determinar si es toggle on o toggle off.
+      // Si la RPC rechazó por regla de negocio (auto-contribución del creador), mostrar alerta amigable
       if (rpcError) {
+        if (rpcError.message?.includes("propia") || rpcError.message?.includes("No puedes")) {
+          Alert.alert(
+            "Acción no permitida",
+            "No puedes confirmar ayuda en tu propia publicación."
+          );
+          return null;
+        }
+
         console.warn("RPC registrar_contribucion no disponible, usando fallback directo:", rpcError.message);
 
         // Verificar si el usuario ya contribuyó consultando la tabla contribuciones

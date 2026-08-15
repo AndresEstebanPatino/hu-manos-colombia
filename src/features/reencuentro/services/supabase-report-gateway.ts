@@ -12,5 +12,26 @@ export class SupabaseReportGateway implements RemoteReportGateway {
       .from("reencuentro_reportes")
       .upsert(reporteARow(reporte), { onConflict: "id" });
     if (error) throw new Error(error.message);
+
+    // Insertar notificación de broadcast para la campanita de la comunidad 🔔
+    try {
+      const isBuscada = reporte.tipo === "BUSCADA";
+      const nombre = reporte.nombre?.trim() || "Persona";
+      const notifTitle = isBuscada
+        ? `🔍 Alguien está buscando a: ${nombre}`
+        : `✅ Se reportó una persona encontrada: ${nombre}`;
+      const notifMsg = reporte.ultimaUbicacion ? `Ubicación: ${reporte.ultimaUbicacion}` : `Reportado en la comunidad`;
+
+      await supabase.from("notificaciones").insert([
+        {
+          titulo: notifTitle,
+          mensaje: notifMsg,
+          tipo: "NUEVO_EVENTO",
+          creado_por: reporte.creadoPorId || null,
+        },
+      ]);
+    } catch (notifErr) {
+      console.warn("Info notificación reporte reencuentro:", notifErr);
+    }
   }
 }

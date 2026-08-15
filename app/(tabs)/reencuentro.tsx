@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
-import { SafeAreaView, View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, Pressable, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Link } from "expo-router";
 import { FormularioCaptura } from "../../src/features/reencuentro/ui/FormularioCaptura";
 import { crearCaptureService } from "../../src/features/reencuentro/services/capture-service";

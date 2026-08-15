@@ -311,6 +311,9 @@ export const guardarLogisticaContribucion = async (
 
   try {
     const updatePayload: Record<string, any> = {};
+    if (logistica.contacto_whatsapp_colaborador) {
+      updatePayload.contacto_whatsapp_colaborador = logistica.contacto_whatsapp_colaborador;
+    }
     if (logistica.tipo_entrega) updatePayload.tipo_entrega = logistica.tipo_entrega;
     if (logistica.ubicacion_contacto) updatePayload.ubicacion_contacto = logistica.ubicacion_contacto;
     if (typeof logistica.latitud === "number") updatePayload.latitud = logistica.latitud;
@@ -319,15 +322,34 @@ export const guardarLogisticaContribucion = async (
 
     if (Object.keys(updatePayload).length === 0) return true;
 
-    const { error } = await supabase
+    const { error, count } = await supabase
       .from("contribuciones")
-      .update(updatePayload)
+      .update(updatePayload, { count: "exact" })
       .eq("necesidad_id", necesidadId)
       .eq("usuario_id", userId);
 
     if (error) {
       console.warn("Info al guardar logística de contribución:", error.message);
-      return false;
+    }
+
+    if (count === 0 || error) {
+      const { error: upsertErr } = await supabase.from("contribuciones").upsert(
+        [
+          {
+            necesidad_id: necesidadId,
+            usuario_id: userId,
+            cantidad_aportada: 1,
+            confirmado: true,
+            ...updatePayload,
+          },
+        ],
+        { onConflict: "necesidad_id,usuario_id" }
+      );
+
+      if (upsertErr) {
+        console.warn("Info al hacer upsert de logística:", upsertErr.message);
+        return false;
+      }
     }
 
     return true;
@@ -338,8 +360,8 @@ export const guardarLogisticaContribucion = async (
 };
 
 /**
- * Obtiene la lista de contribuciones con detalles de logística asociadas a una necesidad.
- * Permitido solo para el creador de la necesidad por políticas RLS.
+ * Obtiene la lista de contribuciones con detalles de logística asociadas a una necesidad,
+ * enriqueciendo cada registro con los datos del perfil (nombre real y avatar) del colaborador.
  */
 export const obtenerContribucionesConLogistica = async (
   necesidadId: string
@@ -353,12 +375,36 @@ export const obtenerContribucionesConLogistica = async (
       .eq("necesidad_id", necesidadId)
       .order("created_at", { ascending: false });
 
-    if (error) {
-      console.warn("Info al consultar contribuciones con logística:", error.message);
+    if (error || !data) {
+      console.warn("Info al consultar contribuciones con logística:", error?.message);
       return [];
     }
 
-    return (data || []) as ContribucionDetalle[];
+    // Obtener los perfiles de los usuarios colaboradores desde la tabla 'profiles'
+    const userIds = Array.from(new Set(data.map((c) => c.usuario_id).filter(Boolean)));
+    let profilesMap: Record<string, { full_name?: string; avatar_url?: string }> = {};
+
+    if (userIds.length > 0) {
+      try {
+        const { data: profData } = await supabase
+          .from("profiles")
+          .select("id, full_name, avatar_url")
+          .in("id", userIds);
+
+        if (profData) {
+          profData.forEach((p) => {
+            profilesMap[p.id] = { full_name: p.full_name, avatar_url: p.avatar_url };
+          });
+        }
+      } catch (profErr) {
+        console.warn("Error al consultar profiles para contribuciones:", profErr);
+      }
+    }
+
+    return data.map((item) => ({
+      ...item,
+      perfil_usuario: profilesMap[item.usuario_id] || undefined,
+    })) as ContribucionDetalle[];
   } catch (err) {
     console.warn("Error al consultar contribuciones con logística:", err);
     return [];
