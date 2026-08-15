@@ -669,13 +669,7 @@ export const reportScamNeed = async (
   };
 };
 
-/**
- * Reinicia la base de datos local con los datos semilla (Seed Data)
- */
-export const resetToSeedData = async (): Promise<Necesidad[]> => {
-  await safeAsyncStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_MOCK_NEEDS));
-  return INITIAL_MOCK_NEEDS;
-};
+
 
 /**
  * Obtiene las necesidades creadas por un usuario específico (para pantalla Mis Alertas)

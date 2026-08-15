@@ -26,7 +26,6 @@ import {
   incrementNeedProgress,
   toggleNeedCompleted,
   deleteNeed,
-  resetToSeedData,
 } from "../../src/services/storage";
 import { supabase, isSupabaseConfigured } from "../../src/lib/supabase";
 import { COLORS } from "../../src/constants/theme";
@@ -128,11 +127,6 @@ export default function FeedScreen() {
 
   const handlePressDetail = (id: string) => {
     router.push(`/detail/${id}`);
-  };
-
-  const handleResetData = async () => {
-    const resetList = await resetToSeedData();
-    setNeeds(resetList);
   };
 
   const activeCount = needs.filter((item) => !item.completado).length;
@@ -340,11 +334,6 @@ export default function FeedScreen() {
                     <Text style={styles.resetButtonText}>Limpiar Filtros</Text>
                   </TouchableOpacity>
                 ) : null}
-
-                <TouchableOpacity style={styles.demoSeedButton} onPress={handleResetData}>
-                  <Ionicons name="refresh" size={16} color={COLORS.primary} />
-                  <Text style={styles.demoSeedText}>Restaurar Solicitudes de Prueba</Text>
-                </TouchableOpacity>
               </View>
             }
           />
