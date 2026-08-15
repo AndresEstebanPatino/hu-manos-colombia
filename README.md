@@ -1,4 +1,4 @@
-# Hu-Mano Colombia 🇨🇴
+# Hu-Manos Colombia 🇨🇴
 > **"Una mano para quien lo necesita"**
 
 Aplicación móvil nativa (iOS y Android) de impacto social y gestión de emergencias comunitarias en Colombia, construida con **React Native**, **Expo (Expo Router)**, y **TypeScript**.
