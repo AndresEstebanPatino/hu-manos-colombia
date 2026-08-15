@@ -119,7 +119,8 @@ export default function FeedScreen() {
   };
 
   const handleDelete = async (id: string) => {
-    const success = await deleteNeed(id);
+    if (!user?.id) return;
+    const success = await deleteNeed(id, user.id);
     if (success) {
       setNeeds((prev) => prev.filter((item) => item.id !== id));
     }

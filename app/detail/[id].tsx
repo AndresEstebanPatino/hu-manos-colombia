@@ -187,9 +187,15 @@ export default function DetailScreen() {
   }
 
   const isCompleted = need.completado || need.progreso_actual >= need.meta_cantidad;
+  const esCreador = Boolean(user?.id && need?.creador_id === user.id);
 
   const handleIncrement = async () => {
     if (!need) return;
+
+    if (user?.id && need.creador_id === user.id) {
+      Alert.alert("Acción no permitida", "No puedes confirmar ayuda en tu propia publicación.");
+      return;
+    }
 
     // Si YA apoyó (toggle OFF / cancelar reserva): ejecutar de inmediato sin modal
     if (hasSupportedLocal) {
@@ -309,9 +315,10 @@ export default function DetailScreen() {
 
   const handleShare = async () => {
     if (!need) return;
+    const shareUrl = `https://andrestebanpatino.github.io/hu-manos-colombia/ir/?id=${need.id}`;
     const shareMessage = need.modo === "OFERTA"
-      ? `🎁 *OFERTA DE APOYO - HU-MANOS COLOMBIA* 🎁\n\n*Oferta:* ${need.titulo}\n📍 *Ubicación:* ${need.ubicacion}\n📊 *Disponibilidad:* ${need.progreso_actual} de ${need.meta_cantidad} ${need.unidad_medida || "unidades"} reclamados\n\nVer oferta en la app: https://hu-manos-colombia.app/detail/${need.id}`
-      : `🚨 *HU-MANO COLOMBIA* 🚨\n\n*Solicitud:* ${need.titulo}\n📍 *Ubicación:* ${need.ubicacion}\n📊 *Progreso:* ${need.progreso_actual} de ${need.meta_cantidad}\n\nVer evento en la app: https://hu-manos-colombia.app/detail/${need.id}`;
+      ? `🎁 *OFERTA DE APOYO - HU-MANOS COLOMBIA* 🎁\n\n*Oferta:* ${need.titulo}\n📍 *Ubicación:* ${need.ubicacion}\n📊 *Disponibilidad:* ${need.progreso_actual} de ${need.meta_cantidad} ${need.unidad_medida || "unidades"} reclamados\n\nVer oferta en la app: ${shareUrl}`
+      : `🚨 *HU-MANOS COLOMBIA* 🚨\n\n*Solicitud:* ${need.titulo}\n📍 *Ubicación:* ${need.ubicacion}\n📊 *Progreso:* ${need.progreso_actual} de ${need.meta_cantidad}\n\nVer evento en la app: ${shareUrl}`;
     try {
       await Share.share({ title: need.titulo, message: shareMessage });
     } catch (e) {}
@@ -425,22 +432,31 @@ export default function DetailScreen() {
         {/* Main Action Buttons */}
         <View style={styles.actionSection}>
           {!isCompleted ? (
-            <TouchableOpacity style={styles.sumoButton} onPress={handleIncrement}>
-              <Ionicons
-                name={hasSupportedLocal ? "checkmark-circle" : need.modo === "OFERTA" ? "download-outline" : "add-circle"}
-                size={20}
-                color="#FFFFFF"
-              />
-              <Text style={styles.sumoText}>
-                {need.modo === "OFERTA"
-                  ? hasSupportedLocal
-                    ? "✓ Ya Reservaste (Toca para cancelar)"
-                    : "📥 Lo necesito / Reservar"
-                  : hasSupportedLocal
-                  ? "✓ Ya Te Sumaste (Toca para remover)"
-                  : "🙋 Confirmar que voy a ayudar"}
-              </Text>
-            </TouchableOpacity>
+            esCreador ? (
+              <View style={styles.ownNeedBanner}>
+                <Ionicons name="person-circle-outline" size={20} color={COLORS.primary} />
+                <Text style={styles.ownNeedBannerText}>
+                  📍 Tu publicación (gestiónala como creador más abajo)
+                </Text>
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.sumoButton} onPress={handleIncrement}>
+                <Ionicons
+                  name={hasSupportedLocal ? "checkmark-circle" : need.modo === "OFERTA" ? "download-outline" : "add-circle"}
+                  size={20}
+                  color="#FFFFFF"
+                />
+                <Text style={styles.sumoText}>
+                  {need.modo === "OFERTA"
+                    ? hasSupportedLocal
+                      ? "✓ Ya Reservaste (Toca para cancelar)"
+                      : "📥 Lo necesito / Reservar"
+                    : hasSupportedLocal
+                    ? "✓ Ya Te Sumaste (Toca para remover)"
+                    : "🙋 Confirmar que voy a ayudar"}
+                </Text>
+              </TouchableOpacity>
+            )
           ) : (
             <View style={styles.resolvedBanner}>
               <Ionicons name="checkmark-circle" size={22} color={COLORS.secondary} />
@@ -911,6 +927,23 @@ const styles = StyleSheet.create({
   backToHomeText: {
     color: "#FFFFFF",
     fontSize: 14,
+    fontWeight: "700",
+  },
+  ownNeedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.primaryLight,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    gap: 8,
+  },
+  ownNeedBannerText: {
+    color: COLORS.primaryDark,
+    fontSize: 13.5,
     fontWeight: "700",
   },
 });

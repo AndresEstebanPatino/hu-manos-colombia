@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Linking, Alert, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "../constants/theme";
 import { ModoNecesidad, ContribucionDetalle, TipoEntrega } from "../types/need";
@@ -68,7 +68,9 @@ export const LogisticaContribucionesSection: React.FC<LogisticaContribucionesSec
         <View style={styles.headerTitleGroup}>
           <Ionicons name="people" size={16} color={COLORS.primary} />
           <Text style={styles.headerTitle}>
-            Personas que confirmaron ({contribuciones.length})
+            {isOferta
+              ? `Personas que reservaron (${contribuciones.length})`
+              : `Personas que confirmaron ayuda (${contribuciones.length})`}
           </Text>
         </View>
         <Ionicons
@@ -106,16 +108,33 @@ export const LogisticaContribucionesSection: React.FC<LogisticaContribucionesSec
                   })
                 : "Reciente";
 
+              const rawWhatsapp = item.contacto_whatsapp_colaborador || "";
+              const cleanWhatsapp = rawWhatsapp.replace(/\D/g, "");
+              const fullName = item.perfil_usuario?.full_name?.trim();
+
+              // Fallback: Nombre real -> Colaborador/Solicitante •••1234 -> Colaborador/Solicitante (uuid...)
+              const prefixLabel = isOferta ? "Solicitante" : "Colaborador";
+              const displayName =
+                fullName ||
+                (cleanWhatsapp.length >= 4
+                  ? `${prefixLabel} •••${cleanWhatsapp.slice(-4)}`
+                  : `${prefixLabel} (${item.usuario_id.substring(0, 8)}...)`);
+
               return (
                 <View key={item.id || index} style={styles.contribCard}>
                   <View style={styles.cardHeader}>
                     <View style={styles.userGroup}>
-                      <View style={styles.avatarPlaceholder}>
-                        <Ionicons name="person" size={14} color="#FFFFFF" />
-                      </View>
-                      <Text style={styles.userName}>
-                        {item.perfil_usuario?.full_name || `Usuario (${item.usuario_id.substring(0, 8)}...)`}
-                      </Text>
+                      {item.perfil_usuario?.avatar_url ? (
+                        <Image
+                          source={{ uri: item.perfil_usuario.avatar_url }}
+                          style={styles.avatarImage}
+                        />
+                      ) : (
+                        <View style={styles.avatarPlaceholder}>
+                          <Ionicons name="person" size={14} color="#FFFFFF" />
+                        </View>
+                      )}
+                      <Text style={styles.userName}>{displayName}</Text>
                     </View>
                     <Text style={styles.dateText}>{formattedDate}</Text>
                   </View>
@@ -127,6 +146,33 @@ export const LogisticaContribucionesSection: React.FC<LogisticaContribucionesSec
                         {badge.label}
                       </Text>
                     </View>
+                  ) : null}
+
+                  {/* Botón / Link Prominente para Abrir WhatsApp Directo */}
+                  {cleanWhatsapp.length >= 7 ? (
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      style={styles.whatsappButton}
+                      onPress={() => {
+                        const cleanNumber = cleanWhatsapp.startsWith("57")
+                          ? cleanWhatsapp
+                          : `57${cleanWhatsapp}`;
+                        const message = isOferta
+                          ? `Hola, vi que reservaste mi oferta. ¿Cómo coordinamos el encuentro?`
+                          : `Hola, vi que confirmaste ayuda en mi solicitud. ¿Cómo coordinamos el encuentro?`;
+                        const whatsappUrl = `https://wa.me/${cleanNumber}?text=${encodeURIComponent(
+                          message
+                        )}`;
+                        Linking.openURL(whatsappUrl).catch(() => {
+                          Alert.alert("WhatsApp", `Número de contacto: +${cleanNumber}`);
+                        });
+                      }}
+                    >
+                      <Ionicons name="logo-whatsapp" size={16} color="#FFFFFF" />
+                      <Text style={styles.whatsappButtonText}>
+                        WhatsApp: {rawWhatsapp.startsWith("+") ? rawWhatsapp : `+57 ${cleanWhatsapp}`}
+                      </Text>
+                    </TouchableOpacity>
                   ) : null}
 
                   {/* Dirección o Punto de Contacto */}
@@ -150,12 +196,6 @@ export const LogisticaContribucionesSection: React.FC<LogisticaContribucionesSec
                       </Text>
                     </View>
                   ) : null}
-
-                  {!item.tipo_entrega && !item.ubicacion_contacto && !item.notas_logistica && (
-                    <Text style={styles.noDetailsText}>
-                      Sin detalles de logística ingresados (Confirmado sin detalles).
-                    </Text>
-                  )}
                 </View>
               );
             })
@@ -227,15 +267,20 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   avatarPlaceholder: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: COLORS.primary,
     alignItems: "center",
     justifyContent: "center",
   },
+  avatarImage: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+  },
   userName: {
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: "700",
     color: COLORS.text,
   },
@@ -254,6 +299,21 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
   },
+  whatsappButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.whatsappGreen,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    gap: 6,
+    marginVertical: 4,
+  },
+  whatsappButtonText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "700",
+  },
   infoRow: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -268,11 +328,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.text,
     flex: 1,
-  },
-  noDetailsText: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-    fontStyle: "italic",
-    marginTop: 2,
   },
 });

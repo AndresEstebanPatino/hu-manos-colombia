@@ -100,6 +100,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   // Cargar notificaciones globales de la tabla `notificaciones` o de `necesidades`
+  // Cargar notificaciones globales de la tabla `notificaciones` o de `necesidades`
   const fetchNotifications = useCallback(async () => {
     if (!isSupabaseConfigured()) {
       return;
@@ -111,10 +112,22 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         .from("notificaciones")
         .select("*")
         .order("creado_en", { ascending: false })
-        .limit(25);
+        .limit(30);
 
       if (!error && data && data.length > 0) {
-        const mapped: CommunityActivity[] = data.map((item: any) => ({
+        const currentUserId = user?.id;
+
+        // 🔒 Filtrado por destinatario:
+        // - NUEVO_EVENTO: Broadcast público (todos lo ven).
+        // - CONTRIBUCION: Notificación privada al creador (solo la ve si creado_por === currentUserId).
+        const visibleData = data.filter((item: any) => {
+          if (item.tipo === "CONTRIBUCION") {
+            return Boolean(currentUserId && item.creado_por === currentUserId);
+          }
+          return true;
+        });
+
+        const mapped: CommunityActivity[] = visibleData.map((item: any) => ({
           id: item.id || `notif-${Math.random()}`,
           title: item.titulo || "🚨 Nueva solicitud",
           message: item.mensaje || "Publicada en Colombia",
@@ -128,19 +141,19 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }));
         setActivityLog(mapped);
 
-        // Calcular notificaciones no leídas basándose en el último visto guardado
+        // Calcular notificaciones no leídas basándose en visibleData
         try {
           const lastRead = await AsyncStorage.getItem("@humano_colombia_last_read_notif");
           const lastReadTime = lastRead ? parseInt(lastRead, 10) : 0;
 
-          const unread = data.filter((item: any) => {
+          const unread = visibleData.filter((item: any) => {
             const itemTime = new Date(item.creado_en || Date.now()).getTime();
             return itemTime > lastReadTime;
           }).length;
 
           setUnreadCount(unread);
         } catch (e) {
-          setUnreadCount(data.length);
+          setUnreadCount(visibleData.length);
         }
         return;
       }
@@ -170,7 +183,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     } catch (err) {
       console.log("Consulta de notificaciones globales en espera.");
     }
-  }, []);
+  }, [user?.id]);
 
   // Supabase Realtime para las tablas `notificaciones` y `necesidades` + Presencia
   useEffect(() => {
@@ -208,6 +221,16 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             (payload) => {
               if (payload.eventType === "INSERT") {
                 const newNotif = payload.new as any;
+                const currentUserId = user?.id;
+
+                // 🔒 Guard de Privacidad Realtime:
+                // Si es de tipo CONTRIBUCION, procesar ÚNICAMENTE si el destinatario es el usuario actual
+                if (newNotif.tipo === "CONTRIBUCION") {
+                  if (!currentUserId || newNotif.creado_por !== currentUserId) {
+                    return; // Ignorar en vivo para otros usuarios
+                  }
+                }
+
                 const newActivity: CommunityActivity = {
                   id: newNotif.id || `notif-${Date.now()}`,
                   title: newNotif.titulo || "🚨 Nueva solicitud",
@@ -224,8 +247,12 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 // Incrementar contador de no leídas (Badge de la campana)
                 setUnreadCount((prev) => prev + 1);
 
-                // Banner flotante para los demás usuarios
-                if (!user?.id || newNotif.creado_por !== user.id) {
+                // Toast flotante:
+                // - CONTRIBUCION: Mostrar al creador destinatario (ya validado arriba)
+                // - NUEVO_EVENTO: Mostrar a todos los demás usuarios (no a quien creó el evento)
+                if (newNotif.tipo === "CONTRIBUCION") {
+                  showToast(newActivity.title, newActivity.message, "success");
+                } else if (!currentUserId || newNotif.creado_por !== currentUserId) {
                   showToast(newActivity.title, newActivity.message, "alert");
                 }
               }

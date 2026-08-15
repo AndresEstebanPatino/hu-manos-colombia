@@ -35,6 +35,24 @@ const AuthContext = createContext<AuthContextProps>({
 
 export const useAuth = () => useContext(AuthContext);
 
+const syncProfileToSupabase = async (sbUser: any) => {
+  if (!isSupabaseConfigured() || !sbUser?.id || sbUser.is_anonymous) return;
+  try {
+    const fullName = sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || sbUser.email?.split("@")[0];
+    const avatarUrl = sbUser.user_metadata?.avatar_url;
+    await supabase.from("profiles").upsert(
+      {
+        id: sbUser.id,
+        full_name: fullName,
+        avatar_url: avatarUrl,
+      },
+      { onConflict: "id" }
+    );
+  } catch (e) {
+    console.warn("Info al sincronizar perfil en profiles:", e);
+  }
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,6 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data, error } = await supabase.auth.exchangeCodeForSession(queryParams.code as string);
         if (!error && data?.user) {
           const sbUser = data.user;
+          syncProfileToSupabase(sbUser);
           const profile: UserProfile = {
             id: sbUser.id,
             nombre: sbUser.user_metadata?.full_name || sbUser.email?.split("@")[0] || "Usuario Google",
@@ -111,6 +130,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const { data } = await supabase.auth.getSession();
           if (data.session?.user) {
             const sbUser = data.session.user;
+            syncProfileToSupabase(sbUser);
             const profile: UserProfile = {
               id: sbUser.id,
               nombre: sbUser.user_metadata?.full_name || sbUser.email?.split("@")[0] || (sbUser.is_anonymous ? "Invitado Voluntario" : "Usuario Verificado"),

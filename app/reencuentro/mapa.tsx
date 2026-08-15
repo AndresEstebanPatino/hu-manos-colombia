@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, Pressable, StyleSheet, SafeAreaView } from "react-native";
+import { View, Text, Pressable, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { MapaIntegrado } from "../../src/components/MapaIntegrado";
 import { getNeeds } from "../../src/services/storage";
@@ -60,7 +61,7 @@ export default function MapaRoute() {
   ];
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["bottom", "left", "right"]}>
       <View style={styles.filtros}>
         {filtros.map((f) => (
           <Pressable
