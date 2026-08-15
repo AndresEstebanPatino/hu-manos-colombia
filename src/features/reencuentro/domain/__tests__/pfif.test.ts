@@ -22,7 +22,7 @@ describe("personaAPfif", () => {
     const xml = personaAPfif(
       rep({ id: "abc", nombre: "José Pérez", sexo: "M", edadAprox: 30, ultimaUbicacion: { texto: "Quibdó" } })
     );
-    expect(xml).toContain("<pfif:person_record_id>humanocolombia.app/abc</pfif:person_record_id>");
+    expect(xml).toContain("<pfif:person_record_id>andresestebanpatino.github.io/hu-manos-colombia/abc</pfif:person_record_id>");
     expect(xml).toContain("<pfif:full_name>José Pérez</pfif:full_name>");
     expect(xml).toContain("<pfif:sex>male</pfif:sex>");
     expect(xml).toContain("<pfif:age>30</pfif:age>");
@@ -51,7 +51,7 @@ describe("reportesAPfif", () => {
     const doc = reportesAPfif([rep({ id: "a", nombre: "Ana" })]);
     expect(doc.startsWith('<?xml version="1.0" encoding="UTF-8"?>')).toBe(true);
     expect(doc).toContain('xmlns:pfif="http://zesty.ca/pfif/1.4"');
-    expect(doc).toContain("humanocolombia.app/a");
+    expect(doc).toContain("andresestebanpatino.github.io/hu-manos-colombia/a");
   });
 
   it("incluye solo reportes BUSCADA (omite ENCONTRADA)", () => {
@@ -59,7 +59,7 @@ describe("reportesAPfif", () => {
       rep({ id: "buscada", nombre: "Buscada" }),
       rep({ id: "encontrada", nombre: "Encontrada", tipo: "ENCONTRADA" }),
     ]);
-    expect(doc).toContain("humanocolombia.app/buscada");
-    expect(doc).not.toContain("humanocolombia.app/encontrada");
+    expect(doc).toContain("andresestebanpatino.github.io/hu-manos-colombia/buscada");
+    expect(doc).not.toContain("andresestebanpatino.github.io/hu-manos-colombia/encontrada");
   });
 });

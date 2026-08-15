@@ -5,7 +5,7 @@
 import { ReportePersona } from "./types";
 
 const PFIF_NS = "http://zesty.ca/pfif/1.4";
-const DOMINIO = "humanocolombia.app";
+const DOMINIO = "andresestebanpatino.github.io/hu-manos-colombia";
 
 /** Escapa los caracteres especiales de XML. */
 function esc(v: string | number | undefined): string {
