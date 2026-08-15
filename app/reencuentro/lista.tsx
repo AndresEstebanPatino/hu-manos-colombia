@@ -1,5 +1,6 @@
 import React from "react";
-import { SafeAreaView, StyleSheet } from "react-native";
+import { StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { PantallaLista } from "../../src/features/reencuentro/ui/PantallaLista";
 import { SupabaseReportsQuery } from "../../src/features/reencuentro/services/supabase-reports-query";
 import { SupabaseReportMutation } from "../../src/features/reencuentro/services/supabase-report-mutation";
@@ -28,7 +29,7 @@ export default function ListaRoute() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["bottom", "left", "right"]}>
       <PantallaLista
         query={query}
         actorId={user?.id ?? null}

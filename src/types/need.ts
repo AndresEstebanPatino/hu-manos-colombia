@@ -58,6 +58,7 @@ export interface UserProfile {
 export type TipoEntrega = "RECOGE" | "NECESITA_ENTREGA" | "SE_ENCUENTRAN";
 
 export interface ContribucionLogistica {
+  contacto_whatsapp_colaborador?: string;
   tipo_entrega?: TipoEntrega;
   ubicacion_contacto?: string;
   latitud?: number;
@@ -69,6 +70,7 @@ export interface ContribucionDetalle extends ContribucionLogistica {
   id: string;
   necesidad_id: string;
   usuario_id: string;
+  contacto_whatsapp_colaborador?: string;
   cantidad_aportada: number;
   confirmado: boolean;
   created_at: string;

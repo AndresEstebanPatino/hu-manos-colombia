@@ -1,5 +1,6 @@
 import React from "react";
-import { SafeAreaView, StyleSheet } from "react-native";
+import { StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { PantallaCoordinacion } from "../../src/features/reencuentro/ui/PantallaCoordinacion";
 import { SupabaseMatchGateway } from "../../src/features/reencuentro/services/supabase-match-gateway";
 import { SupabaseSolicitudesQuery } from "../../src/features/reencuentro/services/supabase-solicitudes-query";

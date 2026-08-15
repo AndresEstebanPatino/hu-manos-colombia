@@ -95,7 +95,7 @@ export const NeedCard: React.FC<NeedCardProps> = ({
   );
 
   const isOferta = need.modo === "OFERTA";
-  const eventShareUrl = `https://hu-manos-colombia.app/detail/${need.id}`;
+  const eventShareUrl = `https://andrestebanpatino.github.io/hu-manos-colombia/ir/?id=${need.id}`;
 
   const eventShareMessage = isOferta
     ? `🎁 *OFERTA DE APOYO - HU-MANOS COLOMBIA* 🎁\n\n` +
@@ -189,8 +189,18 @@ export const NeedCard: React.FC<NeedCardProps> = ({
     setShowReportModal(true);
   };
 
+  const esCreador = Boolean(user?.id && need.creador_id === user.id);
+
   const handlePressIncrement = () => {
     const userId = user?.id;
+    if (userId && need.creador_id === userId) {
+      Alert.alert(
+        "Acción no permitida",
+        "No puedes confirmar ayuda en tu propia publicación."
+      );
+      return;
+    }
+
     if (!userId) {
       // Si no está autenticado, llamar igual a onIncrement (gestiona el aviso de login)
       onIncrement(need.id, undefined);
@@ -233,6 +243,11 @@ export const NeedCard: React.FC<NeedCardProps> = ({
   };
 
   const handleConfirmDelete = () => {
+    if (!user?.id || need.creador_id !== user.id) {
+      Alert.alert("Acceso denegado", "Solo el creador de esta necesidad puede eliminarla.");
+      return;
+    }
+
     if (Platform.OS === "web") {
       if (window.confirm(`¿Estás seguro de eliminar la solicitud "${need.titulo}"?`)) {
         if (onDelete) onDelete(need.id);
@@ -269,7 +284,7 @@ export const NeedCard: React.FC<NeedCardProps> = ({
           </View>
           <View style={styles.topRightActions}>
             <Text style={styles.timeAgoText}>{getTimeAgo(need.creado_en)}</Text>
-            {onDelete && (
+            {onDelete && Boolean(user?.id && need.creador_id === user.id) && (
               <TouchableOpacity
                 onPress={handleConfirmDelete}
                 style={styles.deleteIconButton}
@@ -376,26 +391,35 @@ export const NeedCard: React.FC<NeedCardProps> = ({
         <View style={styles.actionsContainer}>
           {/* Primary Action Button */}
           {!isClosedManually ? (
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={[styles.sumoButton, hasSupported && styles.supportedButton]}
-              onPress={handlePressIncrement}
-            >
-              <Ionicons
-                name={hasSupported ? "checkmark-circle" : isOferta ? "download-outline" : "add-circle"}
-                size={18}
-                color="#FFFFFF"
-              />
-              <Text style={styles.sumoButtonText}>
-                {isOferta
-                  ? hasSupported
-                    ? "✓ Ya Reservaste (Toca para cancelar)"
-                    : "📥 Lo necesito / Reservar"
-                  : hasSupported
-                  ? "✓ Ya Te Sumaste (Toca para remover)"
-                  : "🙋 Confirmar que voy a ayudar"}
-              </Text>
-            </TouchableOpacity>
+            esCreador ? (
+              <View style={styles.ownNeedBanner}>
+                <Ionicons name="person-circle-outline" size={18} color={COLORS.primary} />
+                <Text style={styles.ownNeedBannerText}>
+                  📍 Tu publicación (gestiónala desde tu perfil / Mis Alertas)
+                </Text>
+              </View>
+            ) : (
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={[styles.sumoButton, hasSupported && styles.supportedButton]}
+                onPress={handlePressIncrement}
+              >
+                <Ionicons
+                  name={hasSupported ? "checkmark-circle" : isOferta ? "download-outline" : "add-circle"}
+                  size={18}
+                  color="#FFFFFF"
+                />
+                <Text style={styles.sumoButtonText}>
+                  {isOferta
+                    ? hasSupported
+                      ? "✓ Ya Reservaste (Toca para cancelar)"
+                      : "📥 Lo necesito / Reservar"
+                    : hasSupported
+                    ? "✓ Ya Te Sumaste (Toca para remover)"
+                    : "🙋 Confirmar que voy a ayudar"}
+                </Text>
+              </TouchableOpacity>
+            )
           ) : (
             <View style={styles.completedBanner}>
               <Ionicons name="lock-closed" size={18} color={COLORS.secondary} />
@@ -791,5 +815,22 @@ const styles = StyleSheet.create({
   },
   creatorOpenText: {
     color: COLORS.primary,
+  },
+  ownNeedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.primaryLight,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    gap: 8,
+  },
+  ownNeedBannerText: {
+    color: COLORS.primaryDark,
+    fontSize: 12.5,
+    fontWeight: "700",
   },
 });
