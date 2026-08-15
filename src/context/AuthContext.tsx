@@ -145,25 +145,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return;
           }
 
-          // Si NO hay sesión activa en Supabase Auth, iniciar sesión anónima inmediatamente al arranque
-          try {
-            const { data: anonData, error: anonErr } = await supabase.auth.signInAnonymously();
-            if (!anonErr && anonData?.user) {
-              const sbUser = anonData.user;
-              const anonProfile: UserProfile = {
-                id: sbUser.id,
-                nombre: "Invitado Voluntario",
-                metodo_auth: "RAPIDO",
-                creado_en: sbUser.created_at || new Date().toISOString(),
-              };
-              setUser(anonProfile);
-              await AsyncStorage.setItem(USER_SESSION_KEY, JSON.stringify(anonProfile));
-              setIsLoading(false);
-              return;
-            }
-          } catch (e) {
-            console.log("Inicio de sesión anónimo al arranque:", e);
-          }
         }
 
         const stored = await AsyncStorage.getItem(USER_SESSION_KEY);

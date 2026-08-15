@@ -4,7 +4,7 @@
 |---|---|
 | **Versión** | 1.0 · Borrador para revisión de Tech Lead |
 | **Feature** | Captura de reportes de persona (BUSCADA/ENCONTRADA) **offline** con cola local y sincronización en segundo plano |
-| **Módulo** | Reencuentro (dentro de Hu-Mano Colombia — Expo/React Native/Supabase) |
+| **Módulo** | Reencuentro (dentro de Hu-Manos Colombia — Expo/React Native/Supabase) |
 | **Autor** | PM (agente) · **Fecha:** 2026-08-12 |
 | **Depende de** | Ola 0 (tipos de dominio, esquema Supabase, harness de test) — ver `roadmap-y-orquestacion.md` |
 | **Plataforma de despliegue** | **Android** (por ahora) |

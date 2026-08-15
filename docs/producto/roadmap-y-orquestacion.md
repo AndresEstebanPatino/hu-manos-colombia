@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Repo** | hu-amos-colombia (Hu-Mano Colombia · Expo/RN/Supabase) |
+| **Repo** | hu-manos-colombia (Hu-Manos Colombia · Expo/RN/Supabase) |
 | **Rama base** | `main` (protegida — solo se integra por PR) |
 | **Despliegue actual** | Android |
 | **Autor** | PM/Orquestador (agente) · 2026-08-12 |

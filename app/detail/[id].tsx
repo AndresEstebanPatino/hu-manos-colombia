@@ -315,7 +315,7 @@ export default function DetailScreen() {
 
   const handleShare = async () => {
     if (!need) return;
-    const shareUrl = `https://andrestebanpatino.github.io/hu-manos-colombia/ir/?id=${need.id}`;
+    const shareUrl = `https://andresestebanpatino.github.io/hu-manos-colombia/ir/?id=${need.id}`;
     const shareMessage = need.modo === "OFERTA"
       ? `🎁 *OFERTA DE APOYO - HU-MANOS COLOMBIA* 🎁\n\n*Oferta:* ${need.titulo}\n📍 *Ubicación:* ${need.ubicacion}\n📊 *Disponibilidad:* ${need.progreso_actual} de ${need.meta_cantidad} ${need.unidad_medida || "unidades"} reclamados\n\nVer oferta en la app: ${shareUrl}`
       : `🚨 *HU-MANOS COLOMBIA* 🚨\n\n*Solicitud:* ${need.titulo}\n📍 *Ubicación:* ${need.ubicacion}\n📊 *Progreso:* ${need.progreso_actual} de ${need.meta_cantidad}\n\nVer evento en la app: ${shareUrl}`;
