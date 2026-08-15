@@ -90,4 +90,26 @@ describe("FormularioCaptura", () => {
       )
     );
   });
+
+  it("no muestra 'Agregar foto' sin onSubirFoto", () => {
+    render(<FormularioCaptura creadoPorId="u1" onCrear={onCrearOk()} />);
+    expect(screen.queryByTestId("agregar-foto")).toBeNull();
+  });
+
+  it("'Agregar foto' sube la foto e incluye su URL en el reporte", async () => {
+    const onCrear = onCrearOk();
+    const onSubirFoto = jest.fn().mockResolvedValue("https://storage/foto.jpg");
+    render(<FormularioCaptura creadoPorId="u1" onCrear={onCrear} onSubirFoto={onSubirFoto} />);
+
+    fireEvent.changeText(screen.getByPlaceholderText("Nombre (o apodo)"), "Ana");
+    fireEvent.press(screen.getByTestId("agregar-foto"));
+    await waitFor(() => expect(screen.getByText(/Foto agregada/)).toBeTruthy());
+
+    fireEvent.press(screen.getByText("Reportar"));
+    await waitFor(() => expect(onCrear).toHaveBeenCalledTimes(1));
+    expect(onCrear.mock.calls[0][0].foto).toEqual({
+      urlRemota: "https://storage/foto.jpg",
+      comprimida: true,
+    });
+  });
 });

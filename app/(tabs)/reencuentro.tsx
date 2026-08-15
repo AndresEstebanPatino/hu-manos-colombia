@@ -3,6 +3,7 @@ import { SafeAreaView, View, Text, Pressable, StyleSheet } from "react-native";
 import { Link } from "expo-router";
 import { FormularioCaptura } from "../../src/features/reencuentro/ui/FormularioCaptura";
 import { crearCaptureService } from "../../src/features/reencuentro/services/capture-service";
+import { elegirYSubirFoto } from "../../src/features/reencuentro/services/foto-captura";
 import { iniciarAutoSync } from "../../src/features/reencuentro/services/auto-sync";
 import { NetInfoConnectivityMonitor } from "../../src/features/reencuentro/services/netinfo-connectivity-monitor";
 import { ExpoLocationProvider } from "../../src/features/reencuentro/services/expo-location-provider";
@@ -29,6 +30,11 @@ export default function ReencuentroTab() {
             <Text style={styles.linkTxt}>🔎 Ver personas buscadas</Text>
           </Pressable>
         </Link>
+        <Link href={"/reencuentro/mapa" as any} asChild>
+          <Pressable style={styles.linkBtn} accessibilityRole="button">
+            <Text style={styles.linkTxt}>🗺️ Mapa de personas y servicios</Text>
+          </Pressable>
+        </Link>
         <Link href="/reencuentro/registro" asChild>
           <Pressable style={styles.linkBtnAlt} accessibilityRole="button">
             <Text style={styles.linkTxtAlt}>🧭 Registrarse como coordinador de zona</Text>
@@ -37,9 +43,14 @@ export default function ReencuentroTab() {
       </View>
       <FormularioCaptura
         creadoPorId={user?.id ?? "anonimo"}
-        onCrear={service.crear}
+        onCrear={async (input) => {
+          const res = await service.crear(input);
+          void service.sync.sync(); // sube apenas se captura; si no hay red, queda en cola
+          return res;
+        }}
         locationProvider={locationProvider}
         geocoder={geocoder}
+        onSubirFoto={() => elegirYSubirFoto("GALERIA")}
       />
     </SafeAreaView>
   );

@@ -21,7 +21,6 @@ import { createNeed, formatWhatsAppNumber, getValidSupabaseUserId } from "../../
 import { CATEGORY_CONFIGS, COLORS } from "../../src/constants/theme";
 import { useNotifications } from "../../src/context/NotificationContext";
 import { useAuth } from "../../src/context/AuthContext";
-import { notifyNewNeedCreated } from "../../src/services/pushNotifications";
 import { supabase, isSupabaseConfigured } from "../../src/lib/supabase";
 import { getCurrentGPSCoordinates } from "../../src/services/locationService";
 import { LocationPickerModal } from "../../src/components/LocationPickerModal";
@@ -311,14 +310,6 @@ export default function CreateNeedScreen() {
         "success"
       );
 
-      // Disparar Notificación Push a los demás usuarios de Hu-Manos Colombia
-      notifyNewNeedCreated(
-        created.titulo,
-        created.ubicacion,
-        created.id,
-        created.creador_id || user?.id
-      );
-
       // Limpiar formulario y volver al feed principal
       setTitulo("");
       setDescripcion("");
@@ -402,6 +393,21 @@ export default function CreateNeedScreen() {
               {modo === "OFERTA" ? (
                 <Ionicons name="checkmark-circle" size={20} color="#059669" />
               ) : null}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={[styles.modoOptionCard, styles.modoOptionCardPersona]}
+              onPress={() => router.push("/reencuentro")}
+            >
+              <Text style={styles.modoIconEmoji}>🔎</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.modoTitleText, styles.modoTitleTextPersona]}>
+                  Reportar Persona
+                </Text>
+                <Text style={styles.modoDescText}>Buscar o reportar a alguien (Reencuentro)</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={COLORS.primary} />
             </TouchableOpacity>
           </View>
 
@@ -811,6 +817,13 @@ const styles = StyleSheet.create({
   modoOptionCardOferta: {
     backgroundColor: "#ECFDF5",
     borderColor: "#A7F3D0",
+  },
+  modoOptionCardPersona: {
+    backgroundColor: COLORS.primaryLight,
+    borderColor: COLORS.primary,
+  },
+  modoTitleTextPersona: {
+    color: COLORS.primary,
   },
   modoIconEmoji: {
     fontSize: 24,

@@ -14,11 +14,12 @@ interface ProgressBarProps {
 export const ProgressBar: React.FC<ProgressBarProps> = ({
   current,
   total,
-  unit = "ayudas",
+  unit,
   isCompleted = false,
   modo = "SOLICITUD",
 }) => {
   const isOferta = modo === "OFERTA";
+  const displayUnit = unit || (isOferta ? "unidades" : "ayudas");
   const percentage = Math.min(Math.round((current / Math.max(total, 1)) * 100), 100);
   const isMetaReached = current >= total;
   const barColor = isCompleted || isMetaReached ? COLORS.secondary : isOferta ? "#059669" : COLORS.primary;
@@ -27,17 +28,17 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
     <View style={styles.container}>
       <View style={styles.labelRow}>
         <Text style={styles.progressText}>
-          <Text style={styles.currentNumber}>{current}</Text> de {total} {unit} {isOferta ? "(ofrecidos)" : "(necesitados)"}
+          <Text style={styles.currentNumber}>{current}</Text> de {total} {displayUnit} {isOferta ? "(reclamados)" : "(necesitados)"}
         </Text>
         <Text style={[styles.percentageText, { color: barColor }]}>
           {isCompleted
             ? isOferta
-              ? "✅ Oferta Entregada / Finalizada"
-              : "✅ Cubierta / Cerrada"
+              ? "✅ Oferta agotada"
+              : "✅ Necesidad cubierta"
             : isMetaReached
             ? isOferta
-              ? "🎉 Toda la oferta entregada"
-              : `🎉 Meta Alcanzada (${unit})`
+              ? "🎉 Oferta agotada"
+              : `🎉 Meta Alcanzada (${displayUnit})`
             : `${percentage}%`}
         </Text>
       </View>

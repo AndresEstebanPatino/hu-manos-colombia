@@ -4,11 +4,18 @@ import { PantallaCoordinacion } from "../../src/features/reencuentro/ui/Pantalla
 import { SupabaseMatchGateway } from "../../src/features/reencuentro/services/supabase-match-gateway";
 import { SupabaseSolicitudesQuery } from "../../src/features/reencuentro/services/supabase-solicitudes-query";
 import { SupabaseCoordinadorAprobacion } from "../../src/features/reencuentro/services/supabase-coordinador-aprobacion";
+import { SupabaseNotificacionesGateway } from "../../src/features/reencuentro/services/supabase-notificaciones-gateway";
+import { notificarCoordinadoresCoincidencia } from "../../src/features/reencuentro/services/notificar-coordinadores";
+import { SupabaseReportsQuery } from "../../src/features/reencuentro/services/supabase-reports-query";
+import { SupabaseReportMutation } from "../../src/features/reencuentro/services/supabase-report-mutation";
 import { COLORS } from "../../src/constants/theme";
 
 const service = new SupabaseMatchGateway();
 const solicitudesQuery = new SupabaseSolicitudesQuery();
 const aprobacion = new SupabaseCoordinadorAprobacion();
+const notificaciones = new SupabaseNotificacionesGateway();
+const dedupQuery = new SupabaseReportsQuery();
+const mutation = new SupabaseReportMutation();
 
 export default function CoordinacionRoute() {
   return (
@@ -17,6 +24,10 @@ export default function CoordinacionRoute() {
         service={service}
         solicitudesQuery={solicitudesQuery}
         aprobacion={aprobacion}
+        notificaciones={notificaciones}
+        onCoincidenciaConfirmada={(id) => notificarCoordinadoresCoincidencia(id)}
+        dedupQuery={dedupQuery}
+        mutation={mutation}
       />
     </SafeAreaView>
   );

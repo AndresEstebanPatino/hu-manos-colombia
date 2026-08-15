@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   Platform,
   useWindowDimensions,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -22,24 +23,30 @@ import { CategoryBadge, TypeBadge, ModoBadge } from "../../src/components/Status
 import { ProgressBar } from "../../src/components/ProgressBar";
 import { COLORS } from "../../src/constants/theme";
 import { useAuth } from "../../src/context/AuthContext";
+import { useNotifications } from "../../src/context/NotificationContext";
+import { supabase, isSupabaseConfigured } from "../../src/lib/supabase";
 import { ReliabilityBadge } from "../../src/components/ReliabilityBadge";
 import { StarRatingDisplay } from "../../src/components/StarRatingDisplay";
 import { CalificacionesList } from "../../src/components/CalificacionesList";
 import { CalificarUsuarioModal } from "../../src/components/CalificarUsuarioModal";
+import { ConfirmarAyudaModal } from "../../src/components/ConfirmarAyudaModal";
+import { LogisticaContribucionesSection } from "../../src/components/LogisticaContribucionesSection";
 import {
   puedeCalificar,
   obtenerCalificacionesDeUsuario,
   obtenerPerfilConfiabilidad,
-  registrarContribucionAtomic,
+  guardarLogisticaContribucion,
   CalificacionItem,
   UserReliabilityProfile,
   RatingEligibilityStatus,
 } from "../../src/services/reliabilityService";
+import { ContribucionLogistica } from "../../src/types/need";
 
 export default function DetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, scrollTo } = useLocalSearchParams<{ id: string; scrollTo?: string }>();
   const router = useRouter();
   const { user } = useAuth();
+  const { showToast } = useNotifications();
   const { width: windowWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const isSmallScreen = windowWidth < 380;
@@ -51,12 +58,51 @@ export default function DetailScreen() {
   const [eligibility, setEligibility] = useState<RatingEligibilityStatus>("no_elegible");
   const [existingRating, setExistingRating] = useState<CalificacionItem | null>(null);
   const [showRatingModal, setShowRatingModal] = useState(false);
+  const [hasSupportedLocal, setHasSupportedLocal] = useState<boolean>(false);
+  const [showConfirmModal, setShowConfirmModal] = useState<boolean>(false);
+  const [loadingItem, setLoadingItem] = useState<boolean>(true);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [logisticaY, setLogisticaY] = useState<number>(0);
+
+  useEffect(() => {
+    if (!user?.id || !need?.id || !isSupabaseConfigured()) return;
+    supabase
+      .from("contribuciones")
+      .select("id")
+      .eq("necesidad_id", need.id)
+      .eq("usuario_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setHasSupportedLocal(Boolean(data));
+      });
+  }, [need?.id, user?.id]);
 
   useEffect(() => {
     async function loadItem() {
-      if (!id) return;
+      if (!id) {
+        setLoadingItem(false);
+        return;
+      }
+      setLoadingItem(true);
       const all = await getNeeds();
-      const found = all.find((n) => n.id === id);
+      let found = all.find((n) => n.id === id);
+
+      // Si no estaba en la lista local/paginada, intentar consulta directa a Supabase por ID
+      if (!found && isSupabaseConfigured()) {
+        try {
+          const { data: singleData } = await supabase
+            .from("necesidades")
+            .select("*")
+            .eq("id", id)
+            .maybeSingle();
+          if (singleData) {
+            found = singleData as Necesidad;
+          }
+        } catch (e) {
+          console.warn("Consulta directa por ID falló:", e);
+        }
+      }
+
       if (found) {
         setNeed(found);
         // Cargar perfil de confiabilidad del creador
@@ -68,6 +114,7 @@ export default function DetailScreen() {
             .finally(() => setLoadingRatings(false));
         }
       }
+      setLoadingItem(false);
     }
     loadItem();
   }, [id]);
@@ -84,6 +131,20 @@ export default function DetailScreen() {
     if (need?.id) checkEligibility();
   }, [user?.id, need?.id]);
 
+  // Scroll automático a la sección de logística si se solicita desde una notificación
+  useEffect(() => {
+    if (scrollTo === "logistica" && need) {
+      const timer = setTimeout(() => {
+        if (logisticaY > 0) {
+          scrollViewRef.current?.scrollTo({ y: logisticaY - 15, animated: true });
+        } else {
+          scrollViewRef.current?.scrollTo({ y: 450, animated: true });
+        }
+      }, 350);
+      return () => clearTimeout(timer);
+    }
+  }, [scrollTo, need, logisticaY]);
+
   const refreshRatingsAndProfile = async () => {
     if (!need?.creador_id || !need?.id || !user?.id) return;
     obtenerPerfilConfiabilidad(need.creador_id).then(setCreatorProfile);
@@ -94,10 +155,33 @@ export default function DetailScreen() {
     else setExistingRating(null);
   };
 
+  if (loadingItem) {
+    return (
+      <SafeAreaView style={styles.center}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.notFoundText}>Cargando información...</Text>
+      </SafeAreaView>
+    );
+  }
+
   if (!need) {
     return (
       <SafeAreaView style={styles.center}>
-        <Text style={styles.notFoundText}>Cargando información...</Text>
+        <View style={styles.notFoundCard}>
+          <Ionicons name="alert-circle-outline" size={56} color={COLORS.danger} />
+          <Text style={styles.notFoundTitle}>Esta publicación ya no está disponible</Text>
+          <Text style={styles.notFoundSubtext}>
+            La solicitud u oferta que buscas fue eliminada o cerrada por su creador.
+          </Text>
+          <TouchableOpacity
+            style={styles.backToHomeButton}
+            onPress={() => router.push("/(tabs)")}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="home" size={18} color="#FFFFFF" />
+            <Text style={styles.backToHomeText}>Volver al Feed Principal</Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
     );
   }
@@ -105,14 +189,52 @@ export default function DetailScreen() {
   const isCompleted = need.completado || need.progreso_actual >= need.meta_cantidad;
 
   const handleIncrement = async () => {
+    if (!need) return;
+
+    // Si YA apoyó (toggle OFF / cancelar reserva): ejecutar de inmediato sin modal
+    if (hasSupportedLocal) {
+      setHasSupportedLocal(false);
+      const res = await incrementNeedProgress(need.id, user?.id);
+      if (res) setNeed(res.need);
+      return;
+    }
+
+    // Si NO ha apoyado aún (toggle ON): abrir el modal opcional de logística
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmWithoutDetails = async () => {
+    if (!need) return;
+    setShowConfirmModal(false);
+    setHasSupportedLocal(true);
     const res = await incrementNeedProgress(need.id, user?.id);
     if (res) {
       setNeed(res.need);
-      // Registrar contribución atómica si el usuario se suma por primera vez
-      if (user?.id && res.added && need.creador_id) {
-        registrarContribucionAtomic(need.id, user.id, 1)
-          .then(() => refreshRatingsAndProfile())
-          .catch((err) => console.log("Contribución info:", err));
+      if (res.added && need.creador_id) {
+        refreshRatingsAndProfile();
+      }
+    }
+  };
+
+  const handleConfirmWithDetails = async (logistica: ContribucionLogistica) => {
+    if (!need) return;
+    setShowConfirmModal(false);
+    setHasSupportedLocal(true);
+    const res = await incrementNeedProgress(need.id, user?.id);
+    if (res) {
+      setNeed(res.need);
+      if (res.added && need.creador_id) {
+        refreshRatingsAndProfile();
+      }
+    }
+    if (user?.id) {
+      const success = await guardarLogisticaContribucion(need.id, user.id, logistica);
+      if (!success) {
+        showToast(
+          "✅ Ayuda confirmada",
+          "Tu ayuda quedó confirmada, pero no pudimos guardar los detalles de logística. Puedes coordinar por WhatsApp.",
+          "alert"
+        );
       }
     }
   };
@@ -133,7 +255,9 @@ export default function DetailScreen() {
     if (!hasWhatsApp) return;
     const rawNumber = need.contacto_whatsapp.replace(/\D/g, "");
     const cleanNumber = rawNumber.startsWith("57") ? rawNumber : `57${rawNumber}`;
-    const message = `Hola, vi tu solicitud en Hu-Manos Colombia: "${need.titulo}". Quiero ayudar. ¿Cómo coordinamos?`;
+    const message = need.modo === "OFERTA"
+      ? `Hola, vi tu oferta en Hu-Manos Colombia: "${need.titulo}". Me interesa este apoyo. ¿Cómo coordinamos?`
+      : `Hola, vi tu solicitud en Hu-Manos Colombia: "${need.titulo}". Quiero ayudar. ¿Cómo coordinamos?`;
     const whatsappUrl = `https://wa.me/${cleanNumber}?text=${encodeURIComponent(message)}`;
 
     try {
@@ -185,7 +309,9 @@ export default function DetailScreen() {
 
   const handleShare = async () => {
     if (!need) return;
-    const shareMessage = `🚨 *HU-MANO COLOMBIA* 🚨\n\n*Solicitud:* ${need.titulo}\n📍 *Ubicación:* ${need.ubicacion}\n📊 *Progreso:* ${need.progreso_actual} de ${need.meta_cantidad}\n\nVer evento en la app: https://hu-manos-colombia.app/detail/${need.id}`;
+    const shareMessage = need.modo === "OFERTA"
+      ? `🎁 *OFERTA DE APOYO - HU-MANOS COLOMBIA* 🎁\n\n*Oferta:* ${need.titulo}\n📍 *Ubicación:* ${need.ubicacion}\n📊 *Disponibilidad:* ${need.progreso_actual} de ${need.meta_cantidad} ${need.unidad_medida || "unidades"} reclamados\n\nVer oferta en la app: https://hu-manos-colombia.app/detail/${need.id}`
+      : `🚨 *HU-MANO COLOMBIA* 🚨\n\n*Solicitud:* ${need.titulo}\n📍 *Ubicación:* ${need.ubicacion}\n📊 *Progreso:* ${need.progreso_actual} de ${need.meta_cantidad}\n\nVer evento en la app: https://hu-manos-colombia.app/detail/${need.id}`;
     try {
       await Share.share({ title: need.titulo, message: shareMessage });
     } catch (e) {}
@@ -209,11 +335,16 @@ export default function DetailScreen() {
           <Ionicons name="arrow-back-sharp" size={22} color={COLORS.primary} />
           <Text style={styles.backButtonText}>Atrás</Text>
         </TouchableOpacity>
-        <Text style={styles.navBarTitle}>Detalle de Solicitud</Text>
+        <Text style={styles.navBarTitle}>
+          {need.modo === "OFERTA" ? "Detalle de Oferta" : "Detalle de Solicitud"}
+        </Text>
         <View style={{ width: 60 }} />
       </View>
 
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom + 24, 40) }]}>
+      <ScrollView
+        ref={scrollViewRef}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom + 24, 40) }]}
+      >
         {/* Header Badges */}
         <View style={styles.badgeRow}>
           <ModoBadge modo={need.modo} />
@@ -253,7 +384,7 @@ export default function DetailScreen() {
           <ProgressBar
             current={need.progreso_actual}
             total={need.meta_cantidad}
-            unit={need.unidad_medida || "ayudas"}
+            unit={need.unidad_medida || (need.modo === "OFERTA" ? "unidades" : "ayudas")}
             isCompleted={isCompleted}
             modo={need.modo}
           />
@@ -295,13 +426,27 @@ export default function DetailScreen() {
         <View style={styles.actionSection}>
           {!isCompleted ? (
             <TouchableOpacity style={styles.sumoButton} onPress={handleIncrement}>
-              <Ionicons name="add-circle" size={20} color="#FFFFFF" />
-              <Text style={styles.sumoText}>Ofrecer Ayuda (+1 Me Sumo)</Text>
+              <Ionicons
+                name={hasSupportedLocal ? "checkmark-circle" : need.modo === "OFERTA" ? "download-outline" : "add-circle"}
+                size={20}
+                color="#FFFFFF"
+              />
+              <Text style={styles.sumoText}>
+                {need.modo === "OFERTA"
+                  ? hasSupportedLocal
+                    ? "✓ Ya Reservaste (Toca para cancelar)"
+                    : "📥 Lo necesito / Reservar"
+                  : hasSupportedLocal
+                  ? "✓ Ya Te Sumaste (Toca para remover)"
+                  : "🙋 Confirmar que voy a ayudar"}
+              </Text>
             </TouchableOpacity>
           ) : (
             <View style={styles.resolvedBanner}>
               <Ionicons name="checkmark-circle" size={22} color={COLORS.secondary} />
-              <Text style={styles.resolvedText}>¡Esta necesidad ha sido 100% Cubierta!</Text>
+              <Text style={styles.resolvedText}>
+                {need.modo === "OFERTA" ? "¡Esta oferta ha sido 100% Agotada!" : "¡Esta solicitud ha sido 100% Cubierta!"}
+              </Text>
             </View>
           )}
 
@@ -318,16 +463,30 @@ export default function DetailScreen() {
           </TouchableOpacity>
 
           {user?.id === need.creador_id && (
-            <TouchableOpacity style={styles.toggleCompleteButton} onPress={handleToggleComplete}>
-              <Ionicons
-                name={isCompleted ? "refresh" : "checkmark-done"}
-                size={18}
-                color={COLORS.textMuted}
-              />
-              <Text style={styles.toggleCompleteText}>
-                {isCompleted ? "Reactivar Solicitud" : "Marcar como Cubierto por el Creador"}
-              </Text>
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity style={styles.toggleCompleteButton} onPress={handleToggleComplete}>
+                <Ionicons
+                  name={isCompleted ? "refresh" : "checkmark-done"}
+                  size={18}
+                  color={COLORS.textMuted}
+                />
+                <Text style={styles.toggleCompleteText}>
+                  {isCompleted
+                    ? need.modo === "OFERTA" ? "Reabrir Oferta" : "Reactivar Solicitud"
+                    : need.modo === "OFERTA" ? "Marcar Oferta como Agotada por el Creador" : "Marcar como Cubierto por el Creador"}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Sección exclusiva del Creador: Personas que confirmaron ayuda y logística */}
+              <View
+                onLayout={(e) => {
+                  const y = e.nativeEvent.layout.y;
+                  if (y > 0) setLogisticaY(y);
+                }}
+              >
+                <LogisticaContribucionesSection necesidadId={need.id} modo={need.modo} />
+              </View>
+            </>
           )}
         </View>
 
@@ -377,7 +536,9 @@ export default function DetailScreen() {
               <View style={styles.eligibilityNotice}>
                 <Ionicons name="information-circle-outline" size={16} color={COLORS.textMuted} />
                 <Text style={styles.eligibilityText}>
-                  Solo los voluntarios con contribuciones confirmadas en este evento pueden calificar.
+                  {need.modo === "OFERTA"
+                    ? "Solo los beneficiarios con reservaciones confirmadas en esta oferta pueden calificar."
+                    : "Solo los voluntarios con contribuciones confirmadas en este evento pueden calificar."}
                 </Text>
               </View>
             )}
@@ -390,6 +551,16 @@ export default function DetailScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Modal opcional de logística y coordinación */}
+      <ConfirmarAyudaModal
+        visible={showConfirmModal}
+        modo={need.modo}
+        tituloNecesidad={need.titulo}
+        onClose={() => setShowConfirmModal(false)}
+        onConfirmWithoutDetails={handleConfirmWithoutDetails}
+        onConfirmWithDetails={handleConfirmWithDetails}
+      />
 
       {/* Modal de Calificación */}
       {need.creador_id && user?.id && (
@@ -696,6 +867,51 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: COLORS.text,
     marginTop: 4,
+  },
+  notFoundCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 24,
+    alignItems: "center",
+    maxWidth: 340,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  notFoundTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: COLORS.text,
+    textAlign: "center",
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  notFoundSubtext: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    textAlign: "center",
+    lineHeight: 18,
+    marginBottom: 20,
+  },
+  backToHomeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 14,
+    gap: 8,
+    width: "100%",
+  },
+  backToHomeText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700",
   },
 });
 

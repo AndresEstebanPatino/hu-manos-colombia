@@ -211,6 +211,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
                     <Ionicons name="person-circle-outline" size={20} color="#64748B" />
                     <Text style={styles.guestText}>Continuar como Invitado (Modo Anónimo)</Text>
                   </TouchableOpacity>
+
+                  {/* Registro de coordinador de zona (onboarding) */}
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    style={styles.registroLink}
+                    onPress={() => {
+                      onClose();
+                      router.push("/reencuentro/registro" as any);
+                    }}
+                  >
+                    <Ionicons name="shield-checkmark-outline" size={16} color={COLORS.primary} />
+                    <Text style={styles.registroLinkText}>
+                      ¿Coordinas una zona? Crea tu cuenta de coordinador
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               )}
 
@@ -495,6 +510,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     color: "#475569",
+  },
+  registroLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginTop: 4,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  registroLinkText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: COLORS.primary,
   },
   emailButton: {
     flexDirection: "row",

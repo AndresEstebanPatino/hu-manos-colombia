@@ -22,6 +22,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Necesidad, CategoriaNecesidad, TipoNecesidad, ModoNecesidad } from "../../src/types/need";
 import { ModoBadge } from "../../src/components/StatusBadge";
+import { LogisticaContribucionesSection } from "../../src/components/LogisticaContribucionesSection";
 import {
   getUserNeeds,
   updateNeed,
@@ -483,7 +484,13 @@ export default function MyNeedsScreen() {
                               : styles.statusActiveText,
                           ]}
                         >
-                          {item.completado ? "✅ Cubierta" : "🚨 Activa"}
+                          {item.completado
+                            ? item.modo === "OFERTA"
+                              ? "✅ Oferta Agotada"
+                              : "✅ Necesidad Cubierta"
+                            : item.modo === "OFERTA"
+                            ? "🎁 Oferta Activa"
+                            : "🚨 Solicitud Activa"}
                         </Text>
                       </View>
                       <Text style={styles.timeAgoText}>{getTimeAgo(item.creado_en)}</Text>
@@ -514,53 +521,62 @@ export default function MyNeedsScreen() {
                     <ProgressBar
                       current={item.progreso_actual}
                       total={item.meta_cantidad}
-                      unit={item.unidad_medida || "unidades"}
+                      unit={item.unidad_medida || (item.modo === "OFERTA" ? "unidades" : "ayudas")}
                       modo={item.modo}
                     />
                   </View>
 
                   {/* Botones de Acción Exclusivos del Creador */}
                   {isOwner ? (
-                    <View style={styles.actionButtonsRow}>
-                      {/* Botón Editar */}
-                      <TouchableOpacity
-                        activeOpacity={0.8}
-                        style={styles.editButton}
-                        onPress={() => handleOpenEdit(item)}
-                      >
-                        <Ionicons name="create-outline" size={16} color={COLORS.primary} />
-                        <Text style={styles.editButtonText}>Editar</Text>
-                      </TouchableOpacity>
+                    <>
+                      <View style={styles.actionButtonsRow}>
+                        {/* Botón Editar */}
+                        <TouchableOpacity
+                          activeOpacity={0.8}
+                          style={styles.editButton}
+                          onPress={() => handleOpenEdit(item)}
+                        >
+                          <Ionicons name="create-outline" size={16} color={COLORS.primary} />
+                          <Text style={styles.editButtonText}>Editar</Text>
+                        </TouchableOpacity>
 
-                      {/* Botón Marcar Completada / Reabrir */}
-                      <TouchableOpacity
-                        activeOpacity={0.8}
-                        style={[
-                          styles.toggleButton,
-                          item.completado ? styles.reopenButton : styles.completeButton,
-                        ]}
-                        onPress={() => handleToggleCompleted(item)}
-                      >
-                        <Ionicons
-                          name={item.completado ? "refresh-outline" : "checkmark-circle-outline"}
-                          size={16}
-                          color="#FFFFFF"
-                        />
-                        <Text style={styles.toggleButtonText}>
-                          {item.completado ? "Reabrir" : "Marcar Cubierta"}
-                        </Text>
-                      </TouchableOpacity>
+                        {/* Botón Marcar Completada / Reabrir */}
+                        <TouchableOpacity
+                          activeOpacity={0.8}
+                          style={[
+                            styles.toggleButton,
+                            item.completado ? styles.reopenButton : styles.completeButton,
+                          ]}
+                          onPress={() => handleToggleCompleted(item)}
+                        >
+                          <Ionicons
+                            name={item.completado ? "refresh-outline" : "checkmark-circle-outline"}
+                            size={16}
+                            color="#FFFFFF"
+                          />
+                          <Text style={styles.toggleButtonText}>
+                            {item.completado
+                              ? "Reabrir"
+                              : item.modo === "OFERTA"
+                              ? "Marcar Oferta como Agotada"
+                              : "Marcar Necesidad como Cubierta"}
+                          </Text>
+                        </TouchableOpacity>
 
-                      {/* Botón Eliminar */}
-                      <TouchableOpacity
-                        activeOpacity={0.8}
-                        style={styles.deleteButton}
-                        onPress={() => handleDelete(item)}
-                      >
-                        <Ionicons name="trash-outline" size={16} color="#DC2626" />
-                        <Text style={styles.deleteButtonText}>Eliminar</Text>
-                      </TouchableOpacity>
-                    </View>
+                        {/* Botón Eliminar */}
+                        <TouchableOpacity
+                          activeOpacity={0.8}
+                          style={styles.deleteButton}
+                          onPress={() => handleDelete(item)}
+                        >
+                          <Ionicons name="trash-outline" size={16} color="#DC2626" />
+                          <Text style={styles.deleteButtonText}>Eliminar</Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* Sección exclusiva del Creador: Personas que confirmaron ayuda y logística */}
+                      <LogisticaContribucionesSection necesidadId={item.id} modo={item.modo} />
+                    </>
                   ) : (
                     <View style={styles.nonOwnerBanner}>
                       <Text style={styles.nonOwnerText}>

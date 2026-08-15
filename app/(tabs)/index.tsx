@@ -45,6 +45,7 @@ export default function FeedScreen() {
   const [selectedCategory, setSelectedCategory] = useState<CategoriaNecesidad | "TODAS">("TODAS");
   const [searchQuery, setSearchQuery] = useState("");
   const [showAuthInitial, setShowAuthInitial] = useState(false);
+  const [homeFocused, setHomeFocused] = useState(true);
   const [viewMode, setViewMode] = useState<"LIST" | "MAP">("LIST");
   const [modoFilter, setModoFilter] = useState<"TODO" | "SOLICITUD" | "OFERTA">("TODO");
 
@@ -60,6 +61,8 @@ export default function FeedScreen() {
   useFocusEffect(
     useCallback(() => {
       loadData();
+      setHomeFocused(true);
+      return () => setHomeFocused(false);
     }, [loadData])
   );
 
@@ -77,8 +80,9 @@ export default function FeedScreen() {
     loadData();
 
     if (isSupabaseConfigured()) {
+      const channelName = `realtime-necesidades-${Math.random().toString(36).substring(2, 9)}`;
       const channel = supabase
-        .channel("realtime-necesidades")
+        .channel(channelName)
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "necesidades" },
@@ -358,7 +362,7 @@ export default function FeedScreen() {
 
         {/* Modal de Registro / Inicio de Sesión Obligatorio al abrir por primera vez */}
         <AuthModal
-          visible={showAuthInitial || !user}
+          visible={(showAuthInitial || !user) && homeFocused}
           onClose={() => setShowAuthInitial(false)}
         />
       </View>

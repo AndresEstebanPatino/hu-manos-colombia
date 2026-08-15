@@ -21,3 +21,9 @@ export function mensajeDifusion(reporte: ReportePersona, urlApp?: string): strin
 export function urlCompartirWhatsApp(mensaje: string): string {
   return `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
 }
+
+/** URL wa.me dirigida a un contacto específico (normaliza el número a solo dígitos). */
+export function urlWhatsAppContacto(numero: string, mensaje: string): string {
+  const soloDigitos = (numero ?? "").replace(/[^0-9]/g, "");
+  return `https://wa.me/${soloDigitos}?text=${encodeURIComponent(mensaje)}`;
+}

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Defs, ClipPath, Path, G, Rect } from "react-native-svg";
+import { useRouter } from "expo-router";
 import { COLORS } from "../constants/theme";
 import { useNotifications } from "../context/NotificationContext";
 import { useAuth } from "../context/AuthContext";
@@ -20,6 +21,7 @@ export const Header: React.FC<HeaderProps> = ({
   activeCount,
   completedCount,
 }) => {
+  const router = useRouter();
   const { onlineCount, activityLog, unreadCount, markNotificationsAsRead, fetchNotifications } = useNotifications();
   const { user } = useAuth();
   const [showLogModal, setShowLogModal] = useState(false);
@@ -36,6 +38,50 @@ export const Header: React.FC<HeaderProps> = ({
     setShowLogModal(true);
     markNotificationsAsRead();
     fetchNotifications();
+  };
+
+  const getLogIconConfig = (log: any) => {
+    if (log.tipo_evento === "CONTRIBUCION") {
+      return { name: "hand-left" as const, color: "#059669", bg: "#ECFDF5" };
+    }
+    if (log.tipo_evento === "NUEVO_EVENTO") {
+      return { name: "sparkles" as const, color: COLORS.primary, bg: COLORS.primaryLight };
+    }
+    switch (log.type) {
+      case "success":
+        return { name: "checkmark-circle" as const, color: COLORS.secondary, bg: COLORS.secondaryLight };
+      case "alert":
+        return { name: "megaphone" as const, color: COLORS.primary, bg: COLORS.primaryLight };
+      case "delete":
+        return { name: "trash" as const, color: "#64748B", bg: "#F1F5F9" };
+      default:
+        return { name: "information-circle" as const, color: COLORS.accentBlue, bg: COLORS.accentBlueLight };
+    }
+  };
+
+  const handleNotifPress = (log: any) => {
+    console.log("Notificación tocada:", log);
+    setShowLogModal(false);
+    markNotificationsAsRead();
+
+    let targetId = log.necesidad_id;
+    if (!targetId && typeof log.id === "string" && log.id.startsWith("need-notif-")) {
+      targetId = log.id.replace("need-notif-", "");
+    }
+
+    if (targetId) {
+      const isContribución = log.tipo_evento === "CONTRIBUCION" || log.type === "success";
+      if (isContribución) {
+        router.push({
+          pathname: "/detail/[id]",
+          params: { id: targetId, scrollTo: "logistica" },
+        });
+      } else {
+        router.push(`/detail/${targetId}`);
+      }
+    } else {
+      console.warn("La notificación seleccionada no contiene un necesidad_id válido.");
+    }
   };
 
   return (
@@ -163,52 +209,29 @@ export const Header: React.FC<HeaderProps> = ({
                   </Text>
                 </View>
               ) : (
-                activityLog.map((log) => (
-                  <View key={log.id} style={styles.logItem}>
-                    <View
-                      style={[
-                        styles.logIcon,
-                        {
-                          backgroundColor:
-                            log.type === "success"
-                              ? COLORS.secondaryLight
-                              : log.type === "alert"
-                              ? COLORS.primaryLight
-                              : log.type === "delete"
-                              ? "#F1F5F9"
-                              : COLORS.accentBlueLight,
-                        },
-                      ]}
+                activityLog.map((log) => {
+                  const iconConfig = getLogIconConfig(log);
+                  return (
+                    <TouchableOpacity
+                      key={log.id}
+                      activeOpacity={0.7}
+                      style={styles.logItem}
+                      onPress={() => handleNotifPress(log)}
                     >
-                      <Ionicons
-                        name={
-                          log.type === "success"
-                            ? "checkmark-circle"
-                            : log.type === "alert"
-                            ? "megaphone"
-                            : log.type === "delete"
-                            ? "trash"
-                            : "information-circle"
-                        }
-                        size={18}
-                        color={
-                          log.type === "success"
-                            ? COLORS.secondary
-                            : log.type === "alert"
-                            ? COLORS.primary
-                            : log.type === "delete"
-                            ? "#64748B"
-                            : COLORS.accentBlue
-                        }
-                      />
-                    </View>
-                    <View style={styles.logTextContainer}>
-                      <Text style={styles.logTitle}>{log.title}</Text>
-                      <Text style={styles.logMessage}>{log.message}</Text>
-                      <Text style={styles.logTime}>{log.timestamp}</Text>
-                    </View>
-                  </View>
-                ))
+                      <View style={[styles.logIcon, { backgroundColor: iconConfig.bg }]}>
+                        <Ionicons name={iconConfig.name} size={18} color={iconConfig.color} />
+                      </View>
+                      <View style={styles.logTextContainer}>
+                        <Text style={styles.logTitle}>{log.title}</Text>
+                        <Text style={styles.logMessage}>{log.message}</Text>
+                        <Text style={styles.logTime}>{log.timestamp}</Text>
+                      </View>
+                      {log.necesidad_id || log.id.startsWith("need-notif-") ? (
+                        <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+                      ) : null}
+                    </TouchableOpacity>
+                  );
+                })
               )}
             </ScrollView>
           </View>

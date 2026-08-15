@@ -6,9 +6,11 @@ import { SupabaseReportMutation } from "../../src/features/reencuentro/services/
 import { crearCaptureService } from "../../src/features/reencuentro/services/capture-service";
 import {
   construirAvistamiento,
+  reportesAPfif,
   ReportePersona,
   RolPrivilegiado,
 } from "../../src/features/reencuentro/domain";
+import { exportarPfif } from "../../src/features/reencuentro/services/exportar";
 import { useAuth } from "../../src/context/AuthContext";
 import { COLORS } from "../../src/constants/theme";
 
@@ -35,6 +37,7 @@ export default function ListaRoute() {
         roles={roles}
         mutation={mutation}
         onAvistamiento={onAvistamiento}
+        onExportarPfif={(reps) => exportarPfif(reportesAPfif(reps))}
       />
     </SafeAreaView>
   );
