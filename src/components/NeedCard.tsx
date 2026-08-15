@@ -95,7 +95,7 @@ export const NeedCard: React.FC<NeedCardProps> = ({
   );
 
   const isOferta = need.modo === "OFERTA";
-  const eventShareUrl = `https://andrestebanpatino.github.io/hu-manos-colombia/ir/?id=${need.id}`;
+  const eventShareUrl = `https://andresestebanpatino.github.io/hu-manos-colombia/ir/?id=${need.id}`;
 
   const eventShareMessage = isOferta
     ? `🎁 *OFERTA DE APOYO - HU-MANOS COLOMBIA* 🎁\n\n` +

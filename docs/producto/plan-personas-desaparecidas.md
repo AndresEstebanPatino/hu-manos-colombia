@@ -1,10 +1,10 @@
 # Plan de Producto — Módulo "Reencuentro" (Personas Desaparecidas / Encontradas)
 
-> Nuevo apartado dentro de **Hu-Mano Colombia** para reporte, cruce y reunificación de personas tras el terremoto del 10-ago-2026 (Chocó / occidente de Colombia).
+> Nuevo apartado dentro de **Hu-Manos Colombia** para reporte, cruce y reunificación de personas tras el terremoto del 10-ago-2026 (Chocó / occidente de Colombia).
 
 | | |
 |---|---|
-| **Producto** | Hu-Mano Colombia (Expo / React Native / Supabase) |
+| **Producto** | Hu-Manos Colombia (Expo / React Native / Supabase) |
 | **Entregable** | Módulo nuevo dentro de la app existente — *no* un producto separado |
 | **Plataforma** | **Nativa** (Expo/React Native). El "PWA" del brief queda descartado por decisión de producto |
 | **Requisito duro que se mantiene** | **Offline-first** (captura en campo sin señal), **human-in-the-loop**, **PFIF**, **privacidad PII/menores** |
@@ -16,7 +16,7 @@
 
 ## 0. Resumen ejecutivo (30 segundos)
 
-Añadimos a Hu-Mano Colombia un módulo que **cruza en tiempo casi-real tres poblaciones** que hoy nadie reconcilia: personas **BUSCADAS** (reportadas por familiares), personas **ENCONTRADAS** (rescatadas, hospitalizadas, en albergue o fallecidas) y **reportes duplicados**. El corazón no es "un formulario", es **resolución de entidades**: emparejar BUSCADA ↔ ENCONTRADA con datos parciales, mal escritos y capturados sin conexión, **sin falsos positivos que causen daño**. La IA **sugiere y prioriza; nunca anuncia**: toda coincidencia sensible pasa por **confirmación humana de un coordinador** antes de notificar a una familia. El MVP entrega captura offline, deduplicación, cruce estructurado, tablero de validación para coordinadores y notificación solo tras confirmación humana. Biometría facial y aprendizaje automático quedan **fuera del MVP**.
+Añadimos a Hu-Manos Colombia un módulo que **cruza en tiempo casi-real tres poblaciones** que hoy nadie reconcilia: personas **BUSCADAS** (reportadas por familiares), personas **ENCONTRADAS** (rescatadas, hospitalizadas, en albergue o fallecidas) y **reportes duplicados**. El corazón no es "un formulario", es **resolución de entidades**: emparejar BUSCADA ↔ ENCONTRADA con datos parciales, mal escritos y capturados sin conexión, **sin falsos positivos que causen daño**. La IA **sugiere y prioriza; nunca anuncia**: toda coincidencia sensible pasa por **confirmación humana de un coordinador** antes de notificar a una familia. El MVP entrega captura offline, deduplicación, cruce estructurado, tablero de validación para coordinadores y notificación solo tras confirmación humana. Biometría facial y aprendizaje automático quedan **fuera del MVP**.
 
 **Anti-objetivo declarado:** no reemplazar canales oficiales de emergencia ni inflar cifras. Interoperar (PFIF) con UNGRD, hospitales y Cruz Roja, no competir.
 

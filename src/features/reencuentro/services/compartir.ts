@@ -6,7 +6,7 @@ import { ReportePersona } from "../domain";
  */
 export function mensajeDifusion(reporte: ReportePersona, urlApp?: string): string {
   const partes: (string | null)[] = [
-    "🔎 BUSCAMOS a esta persona (Hu-Mano Colombia · Reencuentro):",
+    "🔎 BUSCAMOS a esta persona (Hu-Manos Colombia · Reencuentro):",
     reporte.nombre ? `Nombre: ${reporte.nombre}` : null,
     typeof reporte.edadAprox === "number" ? `Edad aprox: ${reporte.edadAprox}` : null,
     reporte.ultimaUbicacion?.texto ? `Última ubicación: ${reporte.ultimaUbicacion.texto}` : null,
