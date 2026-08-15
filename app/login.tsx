@@ -18,7 +18,7 @@ import { COLORS } from "../src/constants/theme";
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { signInWithGoogle, signInWithPhone, signInQuick, isLoading } = useAuth();
+  const { signInWithGoogle, signInWithPhone, signInQuick, isLoading, user } = useAuth();
 
   const [mode, setMode] = useState<"OPTIONS" | "PHONE">("OPTIONS");
   const [nombre, setNombre] = useState("");
@@ -58,20 +58,33 @@ export default function LoginScreen() {
     <SafeAreaView style={styles.safeArea}>
       {/* Top Navbar */}
       <View style={styles.navBar}>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          style={styles.backButton}
-          onPress={() => {
-            if (router.canGoBack()) {
-              router.back();
-            } else {
-              router.push("/(tabs)");
-            }
-          }}
-        >
-          <Ionicons name="arrow-back-sharp" size={20} color={COLORS.primary} />
-          <Text style={styles.backButtonText}>Atrás</Text>
-        </TouchableOpacity>
+        {mode === "PHONE" ? (
+          <TouchableOpacity
+            activeOpacity={0.7}
+            style={styles.backButton}
+            onPress={() => setMode("OPTIONS")}
+          >
+            <Ionicons name="arrow-back-sharp" size={20} color={COLORS.primary} />
+            <Text style={styles.backButtonText}>Volver</Text>
+          </TouchableOpacity>
+        ) : user ? (
+          <TouchableOpacity
+            activeOpacity={0.7}
+            style={styles.backButton}
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.push("/(tabs)");
+              }
+            }}
+          >
+            <Ionicons name="arrow-back-sharp" size={20} color={COLORS.primary} />
+            <Text style={styles.backButtonText}>Atrás</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 60 }} />
+        )}
         <Text style={styles.navBarTitle}>Identificarse / Login</Text>
         <View style={{ width: 60 }} />
       </View>

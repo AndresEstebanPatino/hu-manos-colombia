@@ -1,15 +1,17 @@
-import { useEffect } from "react";
-import { Platform } from "react-native";
-import { Stack, useRouter } from "expo-router";
+import React, { useEffect } from "react";
+import { Platform, View, ActivityIndicator } from "react-native";
+import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NotificationProvider } from "../src/context/NotificationContext";
-import { AuthProvider } from "../src/context/AuthContext";
+import { AuthProvider, useAuth } from "../src/context/AuthContext";
 import { ErrorBoundary } from "../src/components/ErrorBoundary";
 import { COLORS } from "../src/constants/theme";
 
-export default function RootLayout() {
+function RootNavigation() {
   const router = useRouter();
+  const segments = useSegments();
+  const { user, isLoading } = useAuth();
 
   // Escuchar cuando el usuario toca una notificación push para abrir la pantalla de detalles del evento
   useEffect(() => {
@@ -30,53 +32,80 @@ export default function RootLayout() {
     }
   }, [router]);
 
+  // Protección de rutas: Si NO hay sesión activa, obligar al usuario a estar en app/login.tsx
+  useEffect(() => {
+    if (isLoading) return;
+
+    const inAuthGroup = segments[0] === "login" || segments[0] === "auth";
+
+    if (!user && !inAuthGroup) {
+      router.replace("/login");
+    } else if (user && inAuthGroup) {
+      router.replace("/(tabs)");
+    }
+  }, [user, isLoading, segments, router]);
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F8FAFC" }}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="detail/[id]"
+        options={{
+          headerShown: true,
+          title: "Detalle de Solicitud",
+          headerBackTitle: "Atrás",
+          headerTintColor: COLORS.primary,
+        }}
+      />
+      <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
+      <Stack.Screen name="login" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="reencuentro/lista"
+        options={{
+          headerShown: true,
+          title: "Personas buscadas",
+          headerBackTitle: "Atrás",
+          headerTintColor: COLORS.primary,
+        }}
+      />
+      <Stack.Screen
+        name="reencuentro/registro"
+        options={{
+          headerShown: true,
+          title: "Registro de coordinador",
+          headerBackTitle: "Atrás",
+          headerTintColor: COLORS.primary,
+        }}
+      />
+      <Stack.Screen
+        name="reencuentro/mapa"
+        options={{
+          headerShown: true,
+          title: "Mapa de personas y servicios",
+          headerBackTitle: "Atrás",
+          headerTintColor: COLORS.primary,
+        }}
+      />
+    </Stack>
+  );
+}
+
+export default function RootLayout() {
   return (
     <ErrorBoundary>
       <SafeAreaProvider>
         <AuthProvider>
           <NotificationProvider>
             <StatusBar style="dark" backgroundColor="#FFFFFF" />
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen
-                name="detail/[id]"
-                options={{
-                  headerShown: true,
-                  title: "Detalle de Solicitud",
-                  headerBackTitle: "Atrás",
-                  headerTintColor: COLORS.primary,
-                }}
-              />
-              <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
-              <Stack.Screen name="login" options={{ headerShown: false }} />
-              <Stack.Screen
-                name="reencuentro/lista"
-                options={{
-                  headerShown: true,
-                  title: "Personas buscadas",
-                  headerBackTitle: "Atrás",
-                  headerTintColor: COLORS.primary,
-                }}
-              />
-              <Stack.Screen
-                name="reencuentro/registro"
-                options={{
-                  headerShown: true,
-                  title: "Registro de coordinador",
-                  headerBackTitle: "Atrás",
-                  headerTintColor: COLORS.primary,
-                }}
-              />
-              <Stack.Screen
-                name="reencuentro/mapa"
-                options={{
-                  headerShown: true,
-                  title: "Mapa de personas y servicios",
-                  headerBackTitle: "Atrás",
-                  headerTintColor: COLORS.primary,
-                }}
-              />
-            </Stack>
+            <RootNavigation />
           </NotificationProvider>
         </AuthProvider>
       </SafeAreaProvider>
