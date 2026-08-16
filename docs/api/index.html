@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hu-Manos Colombia — Documentación API Pública</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui.min.css">
+  <style>
+    :root {
+      --primary: #4311B9;
+      --primary-hover: #350c96;
+      --bg: #F5F2FA;
+      --card-bg: #FFFFFF;
+      --text: #1E293B;
+      --text-muted: #64748B;
+      --warning-bg: #FEF3C7;
+      --warning-border: #F59E0B;
+      --warning-text: #78350F;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 24px 16px;
+    }
+
+    .header-container {
+      max-width: 1000px;
+      margin: 0 auto 24px auto;
+      background: var(--card-bg);
+      padding: 32px 24px;
+      border-radius: 24px;
+      box-shadow: 0 10px 25px rgba(67, 17, 185, 0.08);
+      border: 1px solid rgba(67, 17, 185, 0.1);
+    }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 14px;
+      transition: color 0.2s ease;
+    }
+
+    .back-link:hover {
+      color: var(--primary-hover);
+      text-decoration: underline;
+    }
+
+    .header-title-group {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .logo-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 56px;
+      height: 56px;
+      background: #EDE9FE;
+      color: var(--primary);
+      border-radius: 16px;
+      font-size: 28px;
+      flex-shrink: 0;
+    }
+
+    h1 {
+      color: var(--primary);
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+
+    .tagline {
+      color: var(--text-muted);
+      font-size: 14px;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    /* Warning Banner */
+    .warning-banner {
+      background-color: var(--warning-bg);
+      border: 1px solid var(--warning-border);
+      color: var(--warning-text);
+      padding: 16px 20px;
+      border-radius: 16px;
+      margin-top: 20px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .warning-icon {
+      font-size: 20px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    /* Section Card */
+    .section-card {
+      max-width: 1000px;
+      margin: 0 auto 24px auto;
+      background: var(--card-bg);
+      padding: 28px 24px;
+      border-radius: 24px;
+      box-shadow: 0 10px 25px rgba(67, 17, 185, 0.08);
+      border: 1px solid rgba(67, 17, 185, 0.1);
+    }
+
+    .section-card h2 {
+      color: var(--primary);
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-card p {
+      font-size: 14px;
+      color: #334155;
+      margin-bottom: 16px;
+    }
+
+    .code-block-container {
+      margin-bottom: 24px;
+    }
+
+    .code-block-container:last-child {
+      margin-bottom: 0;
+    }
+
+    .code-title {
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    pre {
+      background: #0F172A;
+      color: #F8FAFC;
+      padding: 16px;
+      border-radius: 14px;
+      overflow-x: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .code-comment { color: #94A3B8; }
+    .code-keyword { color: #F472B6; }
+    .code-string { color: #38BDF8; }
+    .code-func { color: #A78BFA; }
+
+    .note-box {
+      background-color: #F1F5F9;
+      border-left: 4px solid var(--primary);
+      padding: 12px 16px;
+      border-radius: 0 12px 12px 0;
+      font-size: 13px;
+      color: #334155;
+      margin-top: 10px;
+    }
+
+    /* Swagger UI Container */
+    #swagger-ui-card {
+      max-width: 1000px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      border-radius: 24px;
+      box-shadow: 0 10px 25px rgba(67, 17, 185, 0.08);
+      border: 1px solid rgba(67, 17, 185, 0.1);
+      overflow: hidden;
+      padding: 24px;
+    }
+
+    /* Swagger UI Custom Styles */
+    .swagger-ui .topbar { display: none; }
+    .swagger-ui .wrapper { padding: 0; }
+    .swagger-ui .info { margin: 10px 0 20px 0; }
+    .swagger-ui .info .title { color: var(--primary); font-family: inherit; }
+    .swagger-ui .scheme-container { background: transparent; box-shadow: none; padding: 0; margin-bottom: 20px; }
+    .swagger-ui .opblock.opblock-get { background: rgba(67, 17, 185, 0.03); border-color: var(--primary); }
+    .swagger-ui .opblock.opblock-get .opblock-summary-method { background: var(--primary); }
+    .swagger-ui .btn.authorize { color: var(--primary); border-color: var(--primary); }
+    .swagger-ui .btn.authorize svg { fill: var(--primary); }
+    .swagger-ui .opblock-tag { font-family: inherit; color: var(--primary); border-bottom: 1px solid #E2E8F0; }
+  </style>
+</head>
+<body>
+
+  <!-- Encabezado de la página -->
+  <header class="header-container">
+    <div class="top-bar">
+      <a href="../index.html" class="back-link">← Volver a Hu-Manos Colombia</a>
+      <span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">API v1.0.0 (Lectura Pública)</span>
+    </div>
+
+    <div class="header-title-group">
+      <div class="logo-badge">🤝</div>
+      <div>
+        <h1>Hu-Manos Colombia — API Pública</h1>
+        <p class="tagline">Documentación interactiva de la API para desarrolladores de la comunidad</p>
+      </div>
+    </div>
+
+    <!-- Aviso Visible -->
+    <div class="warning-banner">
+      <span class="warning-icon">⚠️</span>
+      <div>
+        <strong>API de solo lectura y de acceso público</strong>, según nuestras Políticas de Uso. Se pide un uso responsable — evita scraping agresivo. Cualquier intento de escritura será rechazado por el servidor.
+      </div>
+    </div>
+  </header>
+
+  <!-- Sección Primeros Pasos -->
+  <section class="section-card">
+    <h2>🚀 Primeros Pasos</h2>
+    <p>Para consumir esta API pública, debes incluir el header <code>apikey</code> con la llave pública <em>anon</em> del proyecto en cada solicitud HTTP.</p>
+
+    <!-- Ejemplo REST fetch -->
+    <div class="code-block-container">
+      <div class="code-title">a) Consulta REST simple con <code>fetch()</code> (JavaScript)</div>
+      <pre><code><span class="code-keyword">const</span> SUPABASE_URL = <span class="code-string">'https://xrxuzvvvorxukyoeqibg.supabase.co'</span>;
+<span class="code-keyword">const</span> SUPABASE_ANON_KEY = <span class="code-string">'TU_SUPABASE_ANON_KEY'</span>; <span class="code-comment">// Reemplaza con tu anon key pública</span>
+
+<span class="code-keyword">async function</span> <span class="code-func">obtenerNecesidades</span>() {
+  <span class="code-keyword">const</span> response = <span class="code-keyword">await</span> <span class="code-func">fetch</span>(
+    <span class="code-string">`${SUPABASE_URL}/rest/v1/api_necesidades?modo=eq.OFERTA&completado=eq.false&select=id,titulo,ubicacion`</span>,
+    {
+      <span class="code-string">headers</span>: {
+        <span class="code-string">'apikey'</span>: SUPABASE_ANON_KEY,
+        <span class="code-string">'Authorization'</span>: <span class="code-string">`Bearer ${SUPABASE_ANON_KEY}`</span>
+      }
+    }
+  );
+  <span class="code-keyword">const</span> data = <span class="code-keyword">await</span> response.<span class="code-func">json</span>();
+  console.<span class="code-func">log</span>(<span class="code-string">'Necesidades activas:'</span>, data);
+}</code></pre>
+    </div>
+
+    <!-- Ejemplo Realtime supabase-js -->
+    <div class="code-block-container">
+      <div class="code-title">b) Suscripción en Tiempo Real con <code>@supabase/supabase-js</code></div>
+      <pre><code><span class="code-keyword">import</span> { createClient } <span class="code-keyword">from</span> <span class="code-string">'@supabase/supabase-js'</span>;
+
+<span class="code-keyword">const</span> SUPABASE_URL = <span class="code-string">'https://xrxuzvvvorxukyoeqibg.supabase.co'</span>;
+<span class="code-keyword">const</span> SUPABASE_ANON_KEY = <span class="code-string">'TU_SUPABASE_ANON_KEY'</span>;
+
+<span class="code-keyword">const</span> supabase = <span class="code-func">createClient</span>(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+<span class="code-comment">// IMPORTANTE: Realtime debe suscribirse a la tabla "necesidades" original (las vistas no soportan Realtime)</span>
+<span class="code-keyword">const</span> channel = supabase
+  .<span class="code-func">channel</span>(<span class="code-string">'cambios-necesidades'</span>)
+  .<span class="code-func">on</span>(
+    <span class="code-string">'postgres_changes'</span>,
+    { event: <span class="code-string">'*'</span>, schema: <span class="code-string">'public'</span>, table: <span class="code-string">'necesidades'</span> },
+    (payload) => {
+      console.<span class="code-func">log</span>(<span class="code-string">'Cambio detectado en tiempo real:'</span>, payload);
+    }
+  )
+  .<span class="code-func">subscribe</span>();</code></pre>
+      <div class="note-box">
+        💡 <strong>Nota sobre Realtime:</strong> Supabase Realtime requiere suscribirse directamente a la tabla base original <code>necesidades</code> (las vistas de PostgreSQL no soportan suscripciones Realtime directamente).
+      </div>
+    </div>
+  </section>
+
+  <!-- Contenedor de Swagger UI -->
+  <section id="swagger-ui-card">
+    <div id="swagger-ui"></div>
+  </section>
+
+  <!-- Carga de Swagger UI CDN Scripts e Inicialización -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui-bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui-standalone-preset.min.js"></script>
+  <script>
+    const openApiSpec = {
+      "openapi": "3.0.3",
+      "info": {
+        "title": "Hu-Manos Colombia — API pública de necesidades",
+        "description": "API REST pública de solo lectura para consultar necesidades u ofertas de ayuda de la comunidad en Colombia. Basada en Supabase / PostgREST.",
+        "version": "1.0.0",
+        "contact": {
+          "name": "Hu-Manos Colombia",
+          "url": "https://github.com/AndresEstebanPatino/hu-manos-colombia"
+        }
+      },
+      "servers": [
+        {
+          "url": "https://xrxuzvvvorxukyoeqibg.supabase.co/rest/v1",
+          "description": "Servidor REST principal de Supabase"
+        }
+      ],
+      "security": [
+        {
+          "ApiKeyAuth": []
+        }
+      ],
+      "paths": {
+        "/api_necesidades": {
+          "get": {
+            "summary": "Obtener lista de necesidades u ofertas de ayuda",
+            "description": "Consulta registros públicos de la vista `api_necesidades`. Soporta filtros PostgREST mediante query parameters.",
+            "operationId": "getApiNecesidades",
+            "parameters": [
+              {
+                "name": "select",
+                "in": "query",
+                "required": false,
+                "description": "Columnas a retornar separadas por coma (ej. `id,titulo,ubicacion`). Si se omite, retorna todas las columnas.",
+                "schema": {
+                  "type": "string",
+                  "default": "*"
+                },
+                "example": "id,titulo,ubicacion,categoria"
+              },
+              {
+                "name": "modo",
+                "in": "query",
+                "required": false,
+                "description": "Filtra por el modo de la necesidad (`eq.SOLICITUD` o `eq.OFERTA`).",
+                "schema": {
+                  "type": "string",
+                  "enum": ["eq.SOLICITUD", "eq.OFERTA"]
+                },
+                "example": "eq.OFERTA"
+              },
+              {
+                "name": "completado",
+                "in": "query",
+                "required": false,
+                "description": "Filtra por estado de cumplimiento (`eq.false` o `eq.true`).",
+                "schema": {
+                  "type": "string",
+                  "enum": ["eq.false", "eq.true"]
+                },
+                "example": "eq.false"
+              },
+              {
+                "name": "categoria",
+                "in": "query",
+                "required": false,
+                "description": "Filtra por categoría (ej. `eq.ALIMENTOS`, `eq.SALUD`, `eq.REFUGIO`, `eq.ROPA_COBIJAS`, `eq.MANO_DE_OBRA`, `eq.BEBES_LACTANCIA`, `eq.OTRO`).",
+                "schema": {
+                  "type": "string"
+                },
+                "example": "eq.ALIMENTOS"
+              },
+              {
+                "name": "tipo",
+                "in": "query",
+                "required": false,
+                "description": "Filtra por tipo de requerimiento (`eq.RECURSO`, `eq.VOLUNTARIO`, `eq.DINERO`, `eq.ESPECIE`).",
+                "schema": {
+                  "type": "string"
+                },
+                "example": "eq.RECURSO"
+              },
+              {
+                "name": "limit",
+                "in": "query",
+                "required": false,
+                "description": "Número máximo de registros a retornar.",
+                "schema": {
+                  "type": "integer"
+                },
+                "example": 20
+              },
+              {
+                "name": "offset",
+                "in": "query",
+                "required": false,
+                "description": "Número de registros a omitir para paginación.",
+                "schema": {
+                  "type": "integer"
+                },
+                "example": 0
+              },
+              {
+                "name": "order",
+                "in": "query",
+                "required": false,
+                "description": "Ordenamiento de resultados (ej. `creado_en.desc`).",
+                "schema": {
+                  "type": "string"
+                },
+                "example": "creado_en.desc"
+              }
+            ],
+            "responses": {
+              "200": {
+                "description": "Respuesta exitosa con la lista de necesidades u ofertas.",
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ApiNecesidad"
+                      }
+                    }
+                  }
+                }
+              },
+              "400": {
+                "description": "Parámetro de consulta inválido."
+              },
+              "401": {
+                "description": "Header `apikey` ausente o no válido."
+              }
+            }
+          }
+        }
+      },
+      "components": {
+        "securitySchemes": {
+          "ApiKeyAuth": {
+            "type": "apiKey",
+            "in": "header",
+            "name": "apikey",
+            "description": "Llave pública anon de Supabase requerida para autenticar las solicitudes HTTP."
+          }
+        },
+        "schemas": {
+          "ApiNecesidad": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "Identificador único de la necesidad (UUID o texto)."
+              },
+              "tipo": {
+                "type": "string",
+                "description": "Tipo de necesidad (ej. RECURSO, VOLUNTARIO, DINERO, ESPECIE)."
+              },
+              "modo": {
+                "type": "string",
+                "description": "Modo de la publicación (SOLICITUD u OFERTA)."
+              },
+              "categoria": {
+                "type": "string",
+                "description": "Categoría asignada (ej. ALIMENTOS, SALUD, REFUGIO, ROPA_COBIJAS, MANO_DE_OBRA, BEBES_LACTANCIA, OTRO)."
+              },
+              "titulo": {
+                "type": "string",
+                "description": "Título descriptivo de la solicitud u oferta."
+              },
+              "descripcion": {
+                "type": "string",
+                "description": "Detalles completos y contexto."
+              },
+              "ubicacion": {
+                "type": "string",
+                "description": "Ubicación en texto plano (ej. ciudad o municipio)."
+              },
+              "latitud": {
+                "type": "number",
+                "format": "double",
+                "nullable": true,
+                "description": "Coordenada de latitud GPS."
+              },
+              "longitud": {
+                "type": "number",
+                "format": "double",
+                "nullable": true,
+                "description": "Coordenada de longitud GPS."
+              },
+              "meta_cantidad": {
+                "type": "number",
+                "description": "Cantidad meta objetiva requerida u ofrecida."
+              },
+              "progreso_actual": {
+                "type": "number",
+                "description": "Cantidad acumulada o alcanzada hasta la fecha."
+              },
+              "unidad_medida": {
+                "type": "string",
+                "description": "Unidad de medida (ej. unidades, kg, COP, personas)."
+              },
+              "completado": {
+                "type": "boolean",
+                "description": "Estado de la publicación (true si está completada)."
+              },
+              "imagen_url": {
+                "type": "string",
+                "nullable": true,
+                "description": "URL pública de la imagen almacenada en Supabase Storage (opcional)."
+              },
+              "creado_en": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Fecha y hora de creación en formato ISO 8601 UTC."
+              }
+            }
+          }
+        }
+      }
+    };
+
+    window.onload = () => {
+      window.ui = SwaggerUIBundle({
+        spec: openApiSpec,
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+        presets: [
+          SwaggerUIBundle.presets.apis,
+          SwaggerUIStandalonePreset
+        ],
+        plugins: [
+          SwaggerUIBundle.plugins.DownloadUrl
+        ],
+        layout: "BaseLayout"
+      });
+    };
+  </script>
+</body>
+</html>

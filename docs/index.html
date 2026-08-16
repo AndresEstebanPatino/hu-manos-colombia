@@ -105,6 +105,12 @@
       flex-shrink: 0;
     }
 
+    .actions-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
     .btn-primary {
       display: flex;
       align-items: center;
@@ -126,6 +132,31 @@
     }
 
     .btn-primary:active {
+      transform: scale(0.98);
+    }
+
+    .btn-secondary {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background-color: transparent;
+      color: var(--primary);
+      text-decoration: none;
+      padding: 14px 24px;
+      border-radius: 14px;
+      font-size: 15px;
+      font-weight: 700;
+      border: 2px solid var(--primary);
+      transition: all 0.2s ease;
+    }
+
+    .btn-secondary:hover {
+      background-color: #EDE9FE;
+      color: var(--primary-hover);
+    }
+
+    .btn-secondary:active {
       transform: scale(0.98);
     }
 
@@ -165,15 +196,25 @@
       </div>
     </div>
 
-    <!-- Botón de Descarga Directa de APK en Android -->
-    <a 
-      class="btn-primary" 
-      href="https://expo.dev/accounts/andrestebanpatino/projects/hu-manos-colombia/builds/078feee8-3284-4116-ad8f-b20895c85ed3"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      📲 Descargar APK Android
-    </a>
+    <div class="actions-group">
+      <!-- Botón de Descarga Directa de APK en Android -->
+      <a 
+        class="btn-primary" 
+        href="https://expo.dev/accounts/andrestebanpatino/projects/hu-manos-colombia/builds/078feee8-3284-4116-ad8f-b20895c85ed3"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        📲 Descargar APK Android
+      </a>
+
+      <!-- Botón Documentación de la API Pública -->
+      <a 
+        class="btn-secondary" 
+        href="api/index.html"
+      >
+        📖 Documentación de la API
+      </a>
+    </div>
 
     <!-- Enlace futuro para Google Play Store / App Store (descomentar cuando se publique):
     <a 
