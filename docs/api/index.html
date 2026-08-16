@@ -189,6 +189,50 @@
       margin-top: 10px;
     }
 
+    /* API Key Box & Copy Button */
+    .api-key-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: #0F172A;
+      color: #38BDF8;
+      padding: 14px 18px;
+      border-radius: 14px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 14px;
+      word-break: break-all;
+    }
+
+    .btn-copy {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      background-color: var(--primary);
+      color: #FFFFFF;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background-color 0.2s ease, transform 0.1s ease;
+    }
+
+    .btn-copy:hover {
+      background-color: var(--primary-hover);
+    }
+
+    .btn-copy:active {
+      transform: scale(0.96);
+    }
+
+    .btn-copy.copied {
+      background-color: #10B981;
+    }
+
     /* Swagger UI Container */
     #swagger-ui-card {
       max-width: 1000px;
@@ -240,6 +284,23 @@
     </div>
   </header>
 
+  <!-- Sección Clave Pública API (Anon Key) -->
+  <section class="section-card">
+    <h2>🔑 Clave Pública para Pruebas (Anon Key)</h2>
+    <p>Para probar la API, usa esta clave pública (la misma que usa nuestra app — no necesitas crear cuenta en Supabase ni generar tu propia key):</p>
+    
+    <div class="api-key-box">
+      <code id="anon-key-value">sb_publishable_5PQ8ugmExZQulip3fmD3eA_hRMLoNqH</code>
+      <button type="button" class="btn-copy" onclick="copyApiKey()">
+        <span id="copy-btn-text">📋 Copiar</span>
+      </button>
+    </div>
+
+    <div class="note-box" style="margin-top: 14px;">
+      🔒 <strong>Nota de Seguridad:</strong> Esta clave solo permite LECTURA de datos públicos (protegido por Row Level Security) — no da acceso a escribir, modificar ni borrar nada.
+    </div>
+  </section>
+
   <!-- Sección Primeros Pasos -->
   <section class="section-card">
     <h2>🚀 Primeros Pasos</h2>
@@ -249,7 +310,7 @@
     <div class="code-block-container">
       <div class="code-title">a) Consulta REST simple con <code>fetch()</code> (JavaScript)</div>
       <pre><code><span class="code-keyword">const</span> SUPABASE_URL = <span class="code-string">'https://xrxuzvvvorxukyoeqibg.supabase.co'</span>;
-<span class="code-keyword">const</span> SUPABASE_ANON_KEY = <span class="code-string">'TU_SUPABASE_ANON_KEY'</span>; <span class="code-comment">// Reemplaza con tu anon key pública</span>
+<span class="code-keyword">const</span> SUPABASE_ANON_KEY = <span class="code-string">'sb_publishable_5PQ8ugmExZQulip3fmD3eA_hRMLoNqH'</span>;
 
 <span class="code-keyword">async function</span> <span class="code-func">obtenerNecesidades</span>() {
   <span class="code-keyword">const</span> response = <span class="code-keyword">await</span> <span class="code-func">fetch</span>(
@@ -272,7 +333,7 @@
       <pre><code><span class="code-keyword">import</span> { createClient } <span class="code-keyword">from</span> <span class="code-string">'@supabase/supabase-js'</span>;
 
 <span class="code-keyword">const</span> SUPABASE_URL = <span class="code-string">'https://xrxuzvvvorxukyoeqibg.supabase.co'</span>;
-<span class="code-keyword">const</span> SUPABASE_ANON_KEY = <span class="code-string">'TU_SUPABASE_ANON_KEY'</span>;
+<span class="code-keyword">const</span> SUPABASE_ANON_KEY = <span class="code-string">'sb_publishable_5PQ8ugmExZQulip3fmD3eA_hRMLoNqH'</span>;
 
 <span class="code-keyword">const</span> supabase = <span class="code-func">createClient</span>(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -302,6 +363,21 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui-bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.11.0/swagger-ui-standalone-preset.min.js"></script>
   <script>
+    function copyApiKey() {
+      const keyText = document.getElementById('anon-key-value').innerText;
+      navigator.clipboard.writeText(keyText).then(() => {
+        const btnText = document.getElementById('copy-btn-text');
+        const btn = btnText.closest('.btn-copy');
+        btnText.innerText = '✅ ¡Copiado!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btnText.innerText = '📋 Copiar';
+          btn.classList.remove('copied');
+        }, 2000);
+      }).catch(err => {
+        console.error('Error al copiar:', err);
+      });
+    }
     const openApiSpec = {
       "openapi": "3.0.3",
       "info": {
