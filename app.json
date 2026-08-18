@@ -13,6 +13,7 @@
     },
     "android": {
       "package": "co.humano.colombia",
+      "versionCode": 5,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive_icon_1024.png",
         "backgroundColor": "#FFFFFF"
@@ -28,6 +29,16 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "Hu-Manos usa tu ubicación para autocompletar dónde se busca o se vio a la persona."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "buildToolsVersion": "35.0.0"
+          }
         }
       ]
     ],
