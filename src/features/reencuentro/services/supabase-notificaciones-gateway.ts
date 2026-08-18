@@ -21,7 +21,8 @@ export class SupabaseNotificacionesGateway implements NotificacionesBoardPort {
       .from("reencuentro_coincidencias")
       .select("id, reporte_buscada_id")
       .eq("estado", "PENDIENTE_NOTIFICACION")
-      .eq("involucra_fallecido", false);
+      .eq("involucra_fallecido", false)
+      .eq("involucra_menor", false);
     if (error) throw new Error(error.message);
 
     const rows = (coincs ?? []) as CoincRow[];

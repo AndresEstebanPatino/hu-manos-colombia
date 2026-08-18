@@ -24,7 +24,16 @@ export function cumpleIdentificabilidadMinima(input: CrearReporteInput): boolean
   return contarCamposIdentificatorios(input) >= 2;
 }
 
-/** Deriva si es menor de edad a partir de la edad aproximada. */
+/**
+ * Deriva si es menor de edad a partir de la edad aproximada.
+ * Principio de precaución: ante la falta de edad aproximada (undefined, null o no numérico),
+ * se asume menor de edad por defecto (es_menor = true) para proteger su PII y evitar
+ * su exposición en listados públicos sin verificación previa.
+ */
 export function derivarEsMenor(edadAprox?: number): boolean {
-  return typeof edadAprox === "number" && edadAprox < 18;
+  if (typeof edadAprox !== "number" || isNaN(edadAprox)) {
+    return true;
+  }
+  return edadAprox < 18;
 }
+

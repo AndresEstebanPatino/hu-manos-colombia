@@ -23,9 +23,9 @@ describe("validación de captura", () => {
     ).toBe(true);
   });
 
-  it("deriva esMenor de la edad", () => {
+  it("deriva esMenor de la edad (asumiendo true por defecto si es undefined por principio de precaución)", () => {
     expect(derivarEsMenor(10)).toBe(true);
     expect(derivarEsMenor(18)).toBe(false);
-    expect(derivarEsMenor(undefined)).toBe(false);
+    expect(derivarEsMenor(undefined)).toBe(true);
   });
 });

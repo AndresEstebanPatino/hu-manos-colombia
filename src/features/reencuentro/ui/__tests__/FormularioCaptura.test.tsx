@@ -96,12 +96,21 @@ describe("FormularioCaptura", () => {
     expect(screen.queryByTestId("agregar-foto")).toBeNull();
   });
 
-  it("'Agregar foto' sube la foto e incluye su URL en el reporte", async () => {
+  it("'Agregar foto' requiere marcar el checkbox de consentimiento antes de subir", async () => {
     const onCrear = onCrearOk();
     const onSubirFoto = jest.fn().mockResolvedValue("https://storage/foto.jpg");
     render(<FormularioCaptura creadoPorId="u1" onCrear={onCrear} onSubirFoto={onSubirFoto} />);
 
     fireEvent.changeText(screen.getByPlaceholderText("Nombre (o apodo)"), "Ana");
+
+    // Intenta presionar foto sin consentir -> deshabilitado / no sube
+    fireEvent.press(screen.getByTestId("agregar-foto"));
+    expect(onSubirFoto).not.toHaveBeenCalled();
+
+    // Marca el consentimiento de foto
+    fireEvent.press(screen.getByTestId("checkbox-consentimiento-foto"));
+
+    // Ahora sí permite agregar la foto
     fireEvent.press(screen.getByTestId("agregar-foto"));
     await waitFor(() => expect(screen.getByText(/Foto agregada/)).toBeTruthy());
 
@@ -111,5 +120,29 @@ describe("FormularioCaptura", () => {
       urlRemota: "https://storage/foto.jpg",
       comprimida: true,
     });
+  });
+
+  it("despliega el banner contextual de menor de edad al escribir edad < 18 y requiere checkbox de autorización", async () => {
+    const onCrear = onCrearOk();
+    render(<FormularioCaptura creadoPorId="u1" onCrear={onCrear} />);
+
+    fireEvent.changeText(screen.getByPlaceholderText("Nombre (o apodo)"), "Pedrito");
+    fireEvent.changeText(screen.getByPlaceholderText("Edad aproximada"), "12");
+
+    // El banner de menor debe ser visible de inmediato
+    expect(screen.getByTestId("banner-menor")).toBeTruthy();
+    expect(screen.getByText(/Estás reportando a un menor de edad/i)).toBeTruthy();
+
+    // El botón 'Reportar' está deshabilitado hasta marcar la autorización
+    fireEvent.press(screen.getByText("Reportar"));
+    expect(onCrear).not.toHaveBeenCalled();
+
+    // Marca el checkbox de autorización del representante legal
+    fireEvent.press(screen.getByTestId("checkbox-autorizacion-menor"));
+
+    // Ahora sí se puede enviar
+    fireEvent.press(screen.getByText("Reportar"));
+    await waitFor(() => expect(onCrear).toHaveBeenCalledTimes(1));
+    expect(onCrear.mock.calls[0][0].edadAprox).toBe(12);
   });
 });

@@ -63,10 +63,10 @@ export function puedeConfirmar(c: Coincidencia): ResultadoRegla {
 }
 
 /**
- * Regla no negociable: una coincidencia con fallecido NO se notifica al familiar
- * por la app; se enruta al protocolo oficial. Devuelve true solo si la app puede
- * enviar notificación automática al familiar.
+ * Regla no negociable: una coincidencia con fallecido o con menor de edad NO se notifica
+ * al familiar de forma automática sin validación especial del coordinador.
+ * Devuelve true solo si la app puede enviar la notificación.
  */
 export function appPuedeNotificarFamiliar(c: Coincidencia): boolean {
-  return c.estado === "PENDIENTE_NOTIFICACION" && !c.involucraFallecido;
+  return c.estado === "PENDIENTE_NOTIFICACION" && !c.involucraFallecido && !c.involucraMenor;
 }

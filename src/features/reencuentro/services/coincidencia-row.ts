@@ -9,6 +9,7 @@ export interface CoincidenciaRow {
   banda: string;
   evidencia: unknown;
   involucra_fallecido: boolean;
+  involucra_menor?: boolean;
   revisor_id: string | null;
   segundo_validador_id: string | null;
   motivo_rechazo: string | null;
@@ -26,6 +27,7 @@ export function rowACoincidencia(row: CoincidenciaRow): Coincidencia {
     banda: row.banda as Coincidencia["banda"],
     evidencia: Array.isArray(row.evidencia) ? (row.evidencia as EvidenciaCoincidencia[]) : [],
     involucraFallecido: row.involucra_fallecido,
+    involucraMenor: Boolean(row.involucra_menor),
     revisorId: row.revisor_id ?? undefined,
     segundoValidadorId: row.segundo_validador_id ?? undefined,
     motivoRechazo: row.motivo_rechazo ?? undefined,

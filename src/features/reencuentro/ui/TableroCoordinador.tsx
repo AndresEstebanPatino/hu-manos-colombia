@@ -39,6 +39,12 @@ export function TableroCoordinador({ coincidencias, onConfirmar, onRechazar }: P
             </Text>
           ) : null}
 
+          {c.involucraMenor ? (
+            <Text style={styles.alertaMenor} testID={`alerta-menor-${c.id}`}>
+              ⚠ Caso con menor de edad: requiere validación adicional del coordinador antes de notificar.
+            </Text>
+          ) : null}
+
           <View style={styles.chips}>
             {c.evidencia.map((e, i) => (
               <Text key={i} style={styles.chip}>
@@ -83,6 +89,7 @@ const styles = StyleSheet.create({
   },
   banda: { fontSize: 15, fontWeight: "700", color: COLORS.primary },
   alerta: { fontSize: 13, color: COLORS.flagRedSoft, fontWeight: "600" },
+  alertaMenor: { fontSize: 13, color: "#D97706", fontWeight: "600" },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   chip: {
     fontSize: 12,
