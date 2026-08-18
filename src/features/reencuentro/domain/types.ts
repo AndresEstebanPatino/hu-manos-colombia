@@ -116,6 +116,8 @@ export interface Coincidencia {
   evidencia: EvidenciaCoincidencia[];
   /** true si la ENCONTRADA está marcada FALLECIDA (activa protocolo reforzado). */
   involucraFallecido: boolean;
+  /** true si cualquiera de los dos reportes involucra a un menor de edad. */
+  involucraMenor?: boolean;
   /** Coordinador que la tomó en revisión. */
   revisorId?: string;
   /** Segundo validador (obligatorio si involucraFallecido). */

@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
+  Linking,
 } from "react-native";
 import { COLORS } from "../../../constants/theme";
 import {
@@ -49,7 +50,14 @@ export function FormularioCaptura({ creadoPorId, onCrear, locationProvider, geoc
   const [fotoUrl, setFotoUrl] = useState<string | null>(null);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
 
+  // Checkboxes de salvaguardas legales
+  const [consentimientoFoto, setConsentimientoFoto] = useState(false);
+  const [autorizacionMenor, setAutorizacionMenor] = useState(false);
+
   const rol = tipo === "BUSCADA" ? "FAMILIAR" : "SOCORRISTA";
+
+  const edadNum = edad.trim() ? Number(edad.trim()) : undefined;
+  const esMenorDetectado = typeof edadNum === "number" && Number.isFinite(edadNum) && edadNum < 18;
 
   const limpiar = () => {
     setNombre("");
@@ -59,6 +67,8 @@ export function FormularioCaptura({ creadoPorId, onCrear, locationProvider, geoc
     setContacto("");
     setFotoUrl(null);
     setResultado(null);
+    setConsentimientoFoto(false);
+    setAutorizacionMenor(false);
   };
 
   async function usarUbicacion() {
@@ -79,7 +89,7 @@ export function FormularioCaptura({ creadoPorId, onCrear, locationProvider, geoc
   }
 
   async function agregarFoto() {
-    if (!onSubirFoto) return;
+    if (!onSubirFoto || !consentimientoFoto) return;
     setSubiendoFoto(true);
     try {
       const url = await onSubirFoto();
@@ -90,10 +100,14 @@ export function FormularioCaptura({ creadoPorId, onCrear, locationProvider, geoc
   }
 
   async function enviar() {
+    if (esMenorDetectado && !autorizacionMenor) {
+      setError("Debes confirmar la autorización del representante legal para reportar a un menor.");
+      return;
+    }
+
     setEnviando(true);
     setError(null);
     try {
-      const edadNum = edad.trim() ? Number(edad.trim()) : undefined;
       const input: CrearReporteInput = {
         tipo,
         creadoPorRol: rol,
@@ -134,6 +148,8 @@ export function FormularioCaptura({ creadoPorId, onCrear, locationProvider, geoc
     );
   }
 
+  const submitDisabled = enviando || (esMenorDetectado && !autorizacionMenor);
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.titulo}>Reportar persona</Text>
@@ -172,6 +188,47 @@ export function FormularioCaptura({ creadoPorId, onCrear, locationProvider, geoc
         onChangeText={setEdad}
         keyboardType="number-pad"
       />
+
+      {/* TAREA 2: Banner contextual de menor de edad */}
+      {esMenorDetectado && (
+        <View style={styles.bannerMenor} testID="banner-menor">
+          <Text style={styles.bannerMenorTitulo}>
+            👶 Estás reportando a un menor de edad. Por ley, este reporte requiere autorización de su representante legal.
+          </Text>
+          <Pressable
+            testID="checkbox-autorizacion-menor"
+            style={styles.checkboxRow}
+            onPress={() => setAutorizacionMenor(!autorizacionMenor)}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: autorizacionMenor }}
+          >
+            <View style={[styles.checkbox, autorizacionMenor && styles.checkboxChecked]}>
+              {autorizacionMenor ? <Text style={styles.checkboxCheckmark}>✓</Text> : null}
+            </View>
+            <Text style={styles.checkboxLabelAlert}>
+              Soy el padre, madre o representante legal de este menor, o cuento con su autorización expresa.
+            </Text>
+          </Pressable>
+
+          <View style={styles.callButtonsRow}>
+            <Pressable
+              style={styles.callBtn}
+              onPress={() => Linking.openURL("tel:141")}
+              accessibilityRole="button"
+            >
+              <Text style={styles.callBtnTxt}>📞 Llamar a ICBF (141)</Text>
+            </Pressable>
+            <Pressable
+              style={styles.callBtn}
+              onPress={() => Linking.openURL("tel:122")}
+              accessibilityRole="button"
+            >
+              <Text style={styles.callBtnTxt}>📞 Llamar a Fiscalía (122)</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+
       {locationProvider ? (
         <Pressable
           testID="usar-ubicacion"
@@ -201,23 +258,42 @@ export function FormularioCaptura({ creadoPorId, onCrear, locationProvider, geoc
         multiline
       />
 
+      {/* TAREA 1: Consentimiento de foto para todos los reportes */}
       {onSubirFoto ? (
-        <Pressable
-          testID="agregar-foto"
-          style={[styles.ubicBtn, subiendoFoto && styles.botonDisabled]}
-          onPress={agregarFoto}
-          disabled={subiendoFoto}
-          accessibilityRole="button"
-        >
-          {subiendoFoto ? (
-            <ActivityIndicator color={COLORS.primary} />
-          ) : (
-            <Text style={styles.ubicBtnTexto}>
-              {fotoUrl ? "✅ Foto agregada — cambiar" : "📷 Agregar foto"}
+        <View style={styles.fotoSection}>
+          <Pressable
+            testID="checkbox-consentimiento-foto"
+            style={styles.checkboxRow}
+            onPress={() => setConsentimientoFoto(!consentimientoFoto)}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: consentimientoFoto }}
+          >
+            <View style={[styles.checkbox, consentimientoFoto && styles.checkboxChecked]}>
+              {consentimientoFoto ? <Text style={styles.checkboxCheckmark}>✓</Text> : null}
+            </View>
+            <Text style={styles.checkboxLabel}>
+              Confirmo que soy la persona en la foto, un familiar directo, o tengo autorización de quien la representa legalmente para reportarla.
             </Text>
-          )}
-        </Pressable>
+          </Pressable>
+
+          <Pressable
+            testID="agregar-foto"
+            style={[styles.ubicBtn, (subiendoFoto || !consentimientoFoto) && styles.botonDisabled]}
+            onPress={agregarFoto}
+            disabled={subiendoFoto || !consentimientoFoto}
+            accessibilityRole="button"
+          >
+            {subiendoFoto ? (
+              <ActivityIndicator color={COLORS.primary} />
+            ) : (
+              <Text style={styles.ubicBtnTexto}>
+                {fotoUrl ? "✅ Foto agregada — cambiar" : "📷 Agregar foto"}
+              </Text>
+            )}
+          </Pressable>
+        </View>
       ) : null}
+
       {tipo === "BUSCADA" && (
         <TextInput
           style={styles.input}
@@ -231,9 +307,9 @@ export function FormularioCaptura({ creadoPorId, onCrear, locationProvider, geoc
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <Pressable
-        style={[styles.boton, enviando && styles.botonDisabled]}
+        style={[styles.boton, submitDisabled && styles.botonDisabled]}
         onPress={enviar}
-        disabled={enviando}
+        disabled={submitDisabled}
         accessibilityRole="button"
       >
         {enviando ? <ActivityIndicator color="#fff" /> : <Text style={styles.botonTexto}>Reportar</Text>}
@@ -273,6 +349,82 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   inputMulti: { minHeight: 72, textAlignVertical: "top" },
+  bannerMenor: {
+    backgroundColor: "#FFFBEB",
+    borderWidth: 1,
+    borderColor: "#F59E0B",
+    borderRadius: 10,
+    padding: 12,
+    gap: 10,
+  },
+  bannerMenorTitulo: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#B45309",
+    lineHeight: 18,
+  },
+  callButtonsRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 4,
+  },
+  callBtn: {
+    flex: 1,
+    backgroundColor: "#FEF3C7",
+    borderWidth: 1,
+    borderColor: "#F59E0B",
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    alignItems: "center",
+  },
+  callBtnTxt: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#92400E",
+  },
+  fotoSection: {
+    gap: 8,
+  },
+  checkboxRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    paddingVertical: 4,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.card,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2,
+  },
+  checkboxChecked: {
+    backgroundColor: COLORS.primary,
+  },
+  checkboxCheckmark: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 16,
+  },
+  checkboxLabel: {
+    flex: 1,
+    fontSize: 13,
+    color: COLORS.text,
+    lineHeight: 18,
+  },
+  checkboxLabelAlert: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#B45309",
+    lineHeight: 18,
+  },
   boton: {
     backgroundColor: COLORS.primary,
     borderRadius: 12,
@@ -280,7 +432,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 4,
   },
-  botonDisabled: { opacity: 0.6 },
+  botonDisabled: { opacity: 0.5 },
   botonTexto: { color: "#fff", fontWeight: "700", fontSize: 16 },
   ubicBtn: {
     borderWidth: 1,
@@ -294,3 +446,4 @@ const styles = StyleSheet.create({
   advertencia: { color: COLORS.flagYellow, fontSize: 13 },
   error: { color: COLORS.flagRedSoft, fontSize: 13 },
 });
+

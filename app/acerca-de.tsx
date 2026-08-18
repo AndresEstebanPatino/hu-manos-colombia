@@ -127,16 +127,16 @@ export default function AcercaDeScreen() {
           </Text>
         </View>
 
-        {/* Sección: Sobre la Búsqueda de Personas con Reconocimiento Facial (IA) (Tratamiento Morado / Serio) */}
+        {/* Sección: Sobre la Búsqueda y Coincidencia de Personas (Reencuentro) */}
         <View style={styles.aiPrivacyCard}>
           <View style={styles.cardHeaderRow}>
             <Text style={styles.emojiIcon}>🔍</Text>
             <Text style={styles.aiPrivacyTitle}>
-              Sobre la Búsqueda de Personas con Reconocimiento Facial (IA)
+              Sobre la Búsqueda y Coincidencia de Personas (Reencuentro)
             </Text>
           </View>
           <Text style={styles.aiPrivacyIntro}>
-            Esta función usa inteligencia artificial para comparar fotos y ayudar a reencontrar personas separadas durante la emergencia. Por tratarse de datos muy sensibles, es importante que sepas:
+            En la versión actual de la app, las coincidencias entre personas buscadas y encontradas se realizan mediante algoritmos de cruzamiento de datos estructurados (nombre, edad aproximada, ubicación y señas). El análisis biométrico por reconocimiento facial de imágenes está planificado como una funcionalidad futura y NO se encuentra activo en la versión actual. Por tratarse de datos muy sensibles, ten en cuenta:
           </Text>
 
           {/* Subsección 1 */}
@@ -151,15 +151,15 @@ export default function AcercaDeScreen() {
           <View style={styles.aiSubSection}>
             <Text style={styles.aiSubTitle}>👶 Menores de edad — protección especial</Text>
             <Text style={styles.cardBodyText}>
-              Si estás buscando o reportando a un niño, niña o adolescente, además de usar esta función, <Text style={styles.aiBoldText}>DEBES</Text> reportarlo a las autoridades correspondientes: ICBF (Instituto Colombiano de Bienestar Familiar) y la Fiscalía General de la Nación. Esta app es una herramienta de apoyo, NUNCA un sustituto del proceso oficial de búsqueda de menores.
+              Si estás buscando o reportando a un niño, niña o adolescente, además de usar esta función, <Text style={styles.aiBoldText}>DEBES</Text> reportarlo a las autoridades correspondientes: ICBF (Instituto Colombiano de Bienestar Familiar - Línea 141) y la Fiscalía General de la Nación (Línea 122). Esta app es una herramienta de apoyo, NUNCA un sustituto del proceso oficial de búsqueda de menores.
             </Text>
           </View>
 
           {/* Subsección 3 */}
           <View style={styles.aiSubSection}>
-            <Text style={styles.aiSubTitle}>🤖 La IA puede equivocarse</Text>
+            <Text style={styles.aiSubTitle}>🤖 Algoritmos y sugerencias de coincidencias</Text>
             <Text style={styles.cardBodyText}>
-              Un "posible match" generado por inteligencia artificial NO es una identificación confirmada. Siempre verifica la coincidencia en persona o por videollamada antes de asumir que se trata de la persona correcta, y confirma también a través de canales oficiales (Cruz Roja, Defensa Civil, línea 123).
+              Una "posible coincidencia" sugerida por el sistema NO es una identificación confirmada. Todas las coincidencias deben ser verificadas por un coordinador o en persona antes de asumir que se trata de la persona correcta, y confirmadas también a través de canales oficiales (Cruz Roja, Defensa Civil, línea 123).
             </Text>
           </View>
 
